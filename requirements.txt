@@ -1,0 +1,7 @@
+sendgrid>=6.0.0      # Email sending functionality
+python-dotenv>=1.0.0 # Environment variable management
+pytz>=2024.1         # Timezone handling
+typing-extensions>=4.5.0 # Support for newer typing features in older Python versions 
+openai
+pydantic>=1.9.0,<3
+pydantic_core==2.33.1.
