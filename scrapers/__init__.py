@@ -2,9 +2,8 @@
 News scraper implementations for different websites.
 """
 
-from . import base, techcrunch
+# Import core functionality
+from .base import NewsArticle, NewsScraper
 
-# Mapping of source names to scraper instances
-SCRAPERS = {
-    "techcrunch": techcrunch.TechCrunchScraper(),
-}
+# Import all scrapers - each module is responsible for its own imports
+# All modules should be imported in manager.py directly

@@ -4,4 +4,5 @@ pytz>=2024.1         # Timezone handling
 typing-extensions>=4.5.0 # Support for newer typing features in older Python versions 
 openai
 pydantic>=1.9.0,<3
-pydantic_core==2.33.1.
+pydantic_core==2.33.1
+requests
