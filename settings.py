@@ -3,24 +3,21 @@ Central configuration settings for the daily news application.
 Contains all configurable parameters, prompts, and default values.
 """
 
-import os
-from typing import List
-
-from pydantic import BaseSettings, Field
+from pydantic import BaseModel, Field
 
 
-class Settings(BaseSettings):
+class Settings(BaseModel):
     """Pydantic model for application settings."""
 
     # Default configuration
-    default_categories: List[str] = Field(
+    default_categories: list[str] = Field(
         default=["latest", "ai", "technology"],
         description="Default news categories to fetch",
     )
     default_max_news_per_category: int = Field(
         default=50, description="Maximum number of news articles per category"
     )
-    default_email_recipients: List[str] = Field(
+    default_email_recipients: list[str] = Field(
         default=["sollal@solomongp.com"], description="Default email recipients"
     )
 
