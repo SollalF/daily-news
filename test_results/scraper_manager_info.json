@@ -1,0 +1,50 @@
+{
+  "sources": [
+    "techcrunch",
+    "cnn"
+  ],
+  "categories": {
+    "techcrunch": [
+      "default",
+      "latest",
+      "ai",
+      "amazon",
+      "apps",
+      "biotech-health",
+      "climate",
+      "cloud",
+      "commerce",
+      "crypto",
+      "enterprise",
+      "electric vehicles",
+      "fintech",
+      "fundraising",
+      "gadgets",
+      "gaming",
+      "google",
+      "government",
+      "hardware",
+      "instagram",
+      "layoffs",
+      "media entertainment",
+      "meta",
+      "microsoft",
+      "privacy",
+      "robotics",
+      "social",
+      "space",
+      "startups",
+      "tiktok",
+      "transportation",
+      "venture"
+    ],
+    "cnn": [
+      "default",
+      "latest",
+      "world",
+      "us",
+      "technology",
+      "general"
+    ]
+  }
+}

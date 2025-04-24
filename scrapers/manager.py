@@ -3,7 +3,12 @@ Manager for all news scrapers.
 Provides a unified interface for fetching news from multiple sources.
 """
 
-from . import base, techcrunch
+import logging
+
+from . import base, cnn, techcrunch
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class ScraperManager:
@@ -11,12 +16,15 @@ class ScraperManager:
 
     def __init__(self):
         """Initialize the scraper manager with all available scrapers."""
+        # Dictionary to hold all scraper instances, keyed by source name
         self.scrapers: dict[str, base.NewsScraper] = {
             "techcrunch": techcrunch.TechCrunchScraper(),
+            "cnn": cnn.CNNScraper(),
         }
 
     def get_available_sources(self) -> list[str]:
         """Get list of available news sources."""
+        # Return the keys of the scrapers dictionary, which are the source names
         return list(self.scrapers.keys())
 
     def get_available_categories(
@@ -31,22 +39,24 @@ class ScraperManager:
         Returns:
             Dictionary mapping source names to available categories
         """
+        # If a specific source is provided and exists, return its categories
         if source and source in self.scrapers:
             return {source: self.scrapers[source].get_available_categories()}
 
+        # Otherwise, return categories for all sources
         return {
             source_name: scraper.get_available_categories()
             for source_name, scraper in self.scrapers.items()
         }
 
-    def fetch_news(
+    def fetch_headlines(
         self,
         sources: list[str] | None = None,
         categories: list[str] | None = None,
-        max_articles_per_source: int = 5,
-    ) -> dict[str, dict[str, list[base.NewsArticle]]]:
+        max_articles_per_source: int = 10,
+    ) -> list[base.NewsArticle]:
         """
-        Fetch news from multiple sources and categories.
+        Fetch only headlines and basic info (no full content) from sources.
 
         Args:
             sources: List of sources to fetch from, or None for all sources
@@ -54,56 +64,168 @@ class ScraperManager:
             max_articles_per_source: Maximum articles per source and category
 
         Returns:
-            Nested dictionary: {source: {category: [articles]}}
+            List of articles
         """
+        # Use all available sources if none are specified
         if not sources:
             sources = list(self.scrapers.keys())
 
+        # Use a default category if none are specified
         if not categories:
             categories = ["default"]
 
-        results: dict[str, dict[str, list[base.NewsArticle]]] = {}
+        # Initialize results list
+        results: list[base.NewsArticle] = []
+        # Track seen URLs to avoid duplicates
+        seen_urls: set[str] = set()
 
+        # Iterate over each source
         for source_name in sources:
             if source_name not in self.scrapers:
+                logger.warning(f"Source {source_name} not found, skipping...")
                 continue
 
             scraper = self.scrapers[source_name]
-            source_results: dict[str, list[base.NewsArticle]] = {}
 
+            # Fetch articles for each category
             for category in categories:
+                # Get headlines without fetching full content
                 articles = scraper.fetch_articles(
                     category=category, max_articles=max_articles_per_source
                 )
 
-                # Convert NewsArticle objects to dictionaries
-                source_results[category] = articles
-
-            if any(source_results.values()):
-                results[source_name] = source_results
+                # Add to our combined list, skipping duplicates
+                for article in articles:
+                    url = article["url"]
+                    if url not in seen_urls:
+                        seen_urls.add(url)
+                        results.append(article)
+                    else:
+                        logger.info(f"Skipping duplicate article: {article['title']}")
 
         return results
 
-    def organize_by_category(
-        self, news_data: dict[str, dict[str, list[base.NewsArticle]]]
-    ) -> dict[str, list[base.NewsArticle]]:
+    def fetch_detailed_content(
+        self, articles: list[base.NewsArticle]
+    ) -> list[base.NewsArticle]:
         """
-        Reorganize news data by category instead of by source.
+        Fetch detailed content for articles that already have basic info.
 
         Args:
-            news_data: News data organized by source and category
+            articles: List of articles with basic info
+
+        Returns:
+            List of articles with full content
+        """
+        logger.info(f"Fetching detailed content for {len(articles)} articles")
+        # Initialize results list
+        detailed_articles: list[base.NewsArticle] = []
+
+        # Group articles by source for more efficient processing
+        articles_by_source: dict[str, list[base.NewsArticle]] = {}
+        for article in articles:
+            source = article.get("source", "")
+            if source not in articles_by_source:
+                articles_by_source[source] = []
+            articles_by_source[source].append(article)
+
+        # Iterate over each source and its articles
+        for source_name, source_articles in articles_by_source.items():
+            # Find the appropriate scraper based on source
+            scraper = None
+            for scraper_name, scraper_instance in self.scrapers.items():
+                if (
+                    scraper_name.lower() in source_name.lower()
+                    or source_name.lower() in scraper_name.lower()
+                ):
+                    scraper = scraper_instance
+                    break
+
+            if not scraper:
+                # If we can't find a matching scraper, keep the original articles
+                detailed_articles.extend(source_articles)
+                continue
+
+            # Fetch detailed content for each article with the appropriate scraper
+            for article in source_articles:
+                try:
+                    # Use the scraper to fetch full article details
+                    detailed: base.NewsArticle = scraper.fetch_article_by_url(
+                        article["url"]
+                    )
+                    detailed_articles.append(detailed)
+                except Exception as e:
+                    logger.error(
+                        f"Error fetching detailed content for {article['url']}: {str(e)}"
+                    )
+                    # Keep the original article if fetching details fails
+                    detailed_articles.append(article)
+
+        return detailed_articles
+
+    def fetch_news(
+        self,
+        sources: list[str] | None = None,
+        categories: list[str] | None = None,
+        max_articles_per_source: int = 5,
+    ) -> list[base.NewsArticle]:
+        """
+        Fetch news from multiple sources and categories with full content.
+        This is a convenience method that calls fetch_headlines followed by fetch_detailed_content.
+
+        Args:
+            sources: List of sources to fetch from, or None for all sources
+            categories: List of categories to fetch, or None for default categories
+            max_articles_per_source: Maximum articles per source and category
+
+        Returns:
+            List of articles with full content
+        """
+        # First fetch headlines
+        headlines = self.fetch_headlines(sources, categories, max_articles_per_source)
+
+        # Then fetch detailed content for those headlines
+        return self.fetch_detailed_content(headlines)
+
+    def organize_by_category(
+        self, news_data: list[base.NewsArticle]
+    ) -> dict[str, list[base.NewsArticle]]:
+        """
+        Organize news data by category.
+
+        Args:
+            news_data: List of articles
 
         Returns:
             Dictionary of news organized by category
         """
+        # Initialize dictionary to hold articles organized by category
         by_category: dict[str, list[base.NewsArticle]] = {}
+        # Track seen URLs to avoid duplicates within categories
+        seen_urls: set[str] = set()
 
-        for _, categories in news_data.items():
-            for category, articles in categories.items():
-                if category not in by_category:
-                    by_category[category] = []
+        # Iterate over each article
+        for article in news_data:
+            # Extract the category from the article itself
+            category = article.get("category")
+            url = article["url"]
 
-                by_category[category].extend(articles)
+            # Skip if we've already seen this URL
+            if url in seen_urls:
+                continue
+
+            seen_urls.add(url)
+
+            # Default to "uncategorized" if no category
+            if not category:
+                category = "uncategorized"
+
+            # Initialize the category list if it doesn't exist
+            if category not in by_category:
+                by_category[category] = []
+
+            # Add the article to the appropriate category
+            by_category[category].append(article)
 
         return by_category
 
@@ -132,15 +254,12 @@ if __name__ == "__main__":
     news = manager.fetch_news(sources=selected_sources, max_articles_per_source=3)
 
     # Print results
-    for news_source, source_data in news.items():
-        print(f"\n=== {news_source.upper()} ===")
-        for cat_name, cat_articles in source_data.items():
-            print(f"\n  Category: {cat_name} ({len(cat_articles)} articles)")
-
-            for i, article in enumerate(cat_articles, 1):
-                print(f"    {i}. {article['title']}")
-                print(f"       URL: {article['url']}")
-                print(f"       Date: {article['published_date']}")
+    print(f"\nTotal articles: {len(news)}")
+    for i, article in enumerate(news[:10], 1):
+        print(f"\n{i}. {article['title']} [{article['source']}]")
+        print(f"   URL: {article['url']}")
+        print(f"   Date: {article.get('published_date', 'No date')}")
+        print(f"   Category: {article.get('category', 'No category')}")
 
     # Display combined by category
     print("\n=== ARTICLES BY CATEGORY ===")

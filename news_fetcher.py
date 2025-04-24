@@ -4,10 +4,14 @@ Module for fetching daily news from web scrapers.
 
 from typing import TypedDict
 
-import scrapers.base as base  # pyright: ignore[reportImplicitRelativeImport]
+from dotenv import load_dotenv
 
-# Import our scraper system with relative import
-import scrapers.manager as scraper_manager  # pyright: ignore[reportImplicitRelativeImport]
+# Handle imports for both script and module use cases
+import ai_services
+from scrapers import base, manager  # type: ignore
+
+# Try to load from .env file if it exists
+_ = load_dotenv()
 
 
 class NewsResult(TypedDict, total=False):
@@ -15,11 +19,15 @@ class NewsResult(TypedDict, total=False):
 
     success: bool
     message: str
-    news: dict[str, list[base.NewsArticle]]
+    news: list[base.NewsArticle]
     error: str
 
 
-def fetch_top_news(categories: list[str], max_news_per_category: int = 5) -> NewsResult:
+def fetch_top_news(
+    categories: list[str],
+    user_interests: str,
+    max_news_per_category: int = 5,
+) -> NewsResult:
     """
     Fetch top news articles using web scrapers.
 
@@ -30,31 +38,37 @@ def fetch_top_news(categories: list[str], max_news_per_category: int = 5) -> New
     Returns:
         NewsResult dictionary with success status and news data
     """
-    all_news = {}
-
     try:
-        # Get news from our web scrapers
-        scraper_news = fetch_from_scrapers(categories, max_news_per_category)
+        # Phase 1: Get initial list of articles with just headlines and descriptions
+        initial_articles = fetch_initial_article_list(categories, max_news_per_category)
 
-        # Combine results from scrapers
-        for category in categories:
-            if category in scraper_news:
-                articles = [
-                    base.NewsArticle(**article) for article in scraper_news[category]
-                ]
-                all_news[category] = articles
-
-        if not all_news:
+        # If no articles were found, return error
+        if not initial_articles:
             return {
                 "success": False,
                 "message": "Failed to fetch news for any category",
                 "error": "NO_RESULTS",
             }
 
+        # Phase 2: Let AI select which articles to scrape in detail
+        articles_to_scrape = ai_services.select_articles(
+            initial_articles, user_interests=user_interests
+        )
+
+        # Phase 3: Fetch detailed content only for selected articles
+        detailed_news = fetch_article_details(articles_to_scrape)
+
+        if not detailed_news:
+            return {
+                "success": False,
+                "message": "Failed to fetch detailed news for any article",
+                "error": "NO_DETAILED_RESULTS",
+            }
+
         return {
             "success": True,
             "message": "Successfully fetched news",
-            "news": all_news,
+            "news": detailed_news,
         }
 
     except Exception as e:
@@ -65,6 +79,93 @@ def fetch_top_news(categories: list[str], max_news_per_category: int = 5) -> New
             "message": f"Error fetching news: {str(e)}",
             "error": "FETCH_ERROR",
         }
+
+
+def fetch_initial_article_list(
+    categories: list[str], max_news_per_category: int = 20
+) -> list[base.NewsArticle]:
+    """
+    Fetch initial list of articles with just basic information.
+
+    Args:
+        categories: List of categories to fetch
+        max_news_per_category: Maximum articles per category
+
+    Returns:
+        List of articles with basic info
+    """
+
+    try:
+        # Create scraper manager
+        scraper_manager = manager.ScraperManager()
+
+        # Fetch news from scrapers
+        all_articles = scraper_manager.fetch_headlines(
+            categories=categories,
+            max_articles_per_source=max(5, max_news_per_category // len(categories)),
+        )
+
+        return all_articles
+    except Exception as e:
+        # Log the error for debugging purposes
+        print(f"Error when fetching initial article list: {str(e)}")
+        return []
+
+
+def fetch_article_details(
+    selected_articles: list[base.NewsArticle],
+) -> list[base.NewsArticle]:
+    """
+    Fetch detailed content for selected articles.
+
+    Args:
+        selected_articles: List of selected articles
+
+    Returns:
+        List of detailed articles with NewsArticle type
+    """
+    print(f"[INFO] Fetching detailed content for {len(selected_articles)} articles")
+
+    detailed_articles: list[base.NewsArticle] = []
+
+    # Create scraper manager
+    scraper_manager = manager.ScraperManager()
+
+    for article in selected_articles:
+        try:
+            # Extract the source from the article
+            source = article.get("source", "")
+
+            # Find the appropriate scraper based on source
+            scraper = None
+            for scraper_name, scraper_instance in scraper_manager.scrapers.items():
+                if (
+                    scraper_name.lower() in source.lower()
+                    or source.lower() in scraper_name.lower()
+                ):
+                    scraper = scraper_instance
+                    break
+
+            if scraper:
+                # Fetch detailed content
+                detailed_article = scraper.fetch_article_by_url(article["url"])
+                if detailed_article:
+                    # Ensure it's a NewsArticle type
+                    detailed_articles.append(detailed_article)
+            else:
+                # If we can't find a matching scraper, just use the original article
+                # The article is already a NewsArticle, so we can append it directly
+                print(f"No scraper found for {article['url']}, using original article")
+                detailed_articles.append(article)
+
+        except Exception as e:
+            print(f"Error fetching detailed content for {article['url']}: {str(e)}")
+            # Keep the original article if we can't get more details
+            detailed_articles.append(article)
+
+    print(f"[INFO] Fetched {len(detailed_articles)} detailed articles")
+
+    return detailed_articles
 
 
 # def fetch_from_newsapi(
@@ -167,10 +268,10 @@ def fetch_from_scrapers(
     """
     try:
         # Create scraper manager
-        manager = scraper_manager.ScraperManager()
+        scraper_manager = manager.ScraperManager()
 
         # Fetch news and organize by category
-        news_by_source = manager.fetch_news(
+        news_by_source = scraper_manager.fetch_news(
             categories=categories,
             max_articles_per_source=max(
                 3, max_news_per_category // len(categories)
@@ -178,7 +279,7 @@ def fetch_from_scrapers(
         )
 
         # Reorganize by category
-        news_by_category = manager.organize_by_category(news_by_source)
+        news_by_category = scraper_manager.organize_by_category(news_by_source)
 
         return news_by_category
     except Exception as e:
@@ -188,17 +289,17 @@ def fetch_from_scrapers(
 
 
 if __name__ == "__main__":
+    from settings import DEFAULT_USER_INTERESTS
+
     # Test categories
     categories = ["ai", "amazon", "apps"]
     # Fetch top news for test categories
-    result = fetch_top_news(categories)
+    result = fetch_top_news(categories, user_interests=DEFAULT_USER_INTERESTS)
 
     # Print the result
     if result.get("success"):
         print("Successfully fetched news:")
-        for category, articles in result.get("news", {}).items():
-            print(f"\nCategory: {category}")
-            for article in articles:
-                print(f"Title: {article['title']}, Source: {article['source']}")
+        for article in result.get("news", []):
+            print(f"Title: {article['title']}, Source: {article['source']}")
     else:
         print(f"Failed to fetch news: {result.get('message')}")

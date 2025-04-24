@@ -4,13 +4,15 @@ Module for sending daily news emails using SendGrid API.
 
 import os
 from datetime import datetime
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import pytz
-import scrapers.base as base  # pyright: ignore[reportImplicitRelativeImport]
 from python_http_client.client import Response
 from sendgrid import SendGridAPIClient  # pyright: ignore[reportMissingTypeStubs]
 from sendgrid.helpers.mail import Mail  # pyright: ignore[reportMissingTypeStubs]
+
+import scrapers.base as base  # pyright: ignore[reportImplicitRelativeImport]
+from settings import EMAIL_FROM_ADDRESS, EMAIL_SUBJECT_TEMPLATE, SENDGRID_API_KEY
 
 
 class EmailResponse(TypedDict):
@@ -21,7 +23,7 @@ class EmailResponse(TypedDict):
 
 
 def send_news_email(
-    news_data: dict[str, list[base.NewsArticle]],
+    news_data: list[base.NewsArticle],
     to_emails: list[str],
     news_summary: str,
 ) -> EmailResponse:
@@ -29,14 +31,14 @@ def send_news_email(
     Send daily news digest via email using SendGrid
 
     Args:
-        news_data: Dictionary of news articles by category
+        news_data: List of news articles
         to_emails: List of recipient email addresses
         news_summary: Summary of the news to include in the email
 
     Returns:
         EmailResponse with status code and result message
     """
-    key = os.getenv("SENDGRID_API_KEY")
+    key = SENDGRID_API_KEY
     if not key:
         raise ValueError("SendGrid API key not found in environment variables")
 
@@ -49,9 +51,9 @@ def send_news_email(
 
     sg: SendGridAPIClient = SendGridAPIClient(key)
     message: Mail = Mail(
-        from_email="support@goodclass.ai",
+        from_email=EMAIL_FROM_ADDRESS,
         to_emails=to_emails,
-        subject=f"Daily News Digest - {current_date}",
+        subject=EMAIL_SUBJECT_TEMPLATE.format(date=current_date),
         html_content=html_content,
     )
     response: Response = sg.send(message)
@@ -66,13 +68,13 @@ def send_news_email(
 
 
 def create_email_html(
-    news_data: dict[str, list[base.NewsArticle]], date: str, summary: str
+    news_data: list[base.NewsArticle], date: str, summary: str
 ) -> str:
     """
     Create HTML content for news email.
 
     Args:
-        news_data: Dictionary of news articles by category
+        news_data: List of news articles
         date: Current date string
         summary: Summary of the news to include in the email
 
@@ -86,8 +88,16 @@ def create_email_html(
         <p style="color: #555; line-height: 1.5;">Here are today's top news stories:</p>
     """
 
+    # Group articles by category for display
+    articles_by_category = {}
+    for article in news_data:
+        category = article.get("category", "uncategorized")
+        if category not in articles_by_category:
+            articles_by_category[category] = []
+        articles_by_category[category].append(article)
+
     # Add news by category
-    for category, articles in news_data.items():
+    for category, articles in articles_by_category.items():
         if not articles:
             continue
 
@@ -108,10 +118,10 @@ def create_email_html(
                     </a>
                 </h4>
                 <p style="color: #777; font-size: 12px; margin-top: 0;">
-                    {article['source']} • {article['published_date']}
+                    {article['source']} • {article.get('published_date', 'No date')}
                 </p>
                 <p style="color: #555; margin-top: 8px;">
-                    {(article['content'][:100] if article['content'] else 'No content available.')}
+                    {(article.get('content', '')[:100] if article.get('content') else article.get('description', 'No content available.'))}
                 </p>
             </div>
             """
@@ -134,32 +144,28 @@ if __name__ == "__main__":
     _ = load_dotenv()
 
     # Sample data for testing
-    sample_news_data: dict[str, list[base.NewsArticle]] = {
-        "technology": [
-            {
-                "title": "AI Breakthrough",
-                "url": "https://example.com/ai-breakthrough",
-                "source": "Tech News",
-                "published_date": "2023-10-01",
-                "description": "A new AI model has achieved state-of-the-art results.",
-                "image_url": "https://example.com/ai-breakthrough.jpg",
-                "category": "technology",
-                "content": "A new AI model has achieved state-of-the-art results.",
-            }
-        ],
-        "sports": [
-            {
-                "title": "Local Team Wins Championship",
-                "url": "https://example.com/local-team-wins",
-                "source": "Sports Daily",
-                "published_date": "2023-10-01",
-                "description": "The local team has won the championship in a thrilling final.",
-                "image_url": "https://example.com/local-team-wins.jpg",
-                "category": "sports",
-                "content": "The local team has won the championship in a thrilling final.",
-            }
-        ],
-    }
+    sample_news_data: list[base.NewsArticle] = [
+        {
+            "title": "AI Breakthrough",
+            "url": "https://example.com/ai-breakthrough",
+            "source": "Tech News",
+            "published_date": "2023-10-01",
+            "description": "A new AI model has achieved state-of-the-art results.",
+            "image_url": "https://example.com/ai-breakthrough.jpg",
+            "category": "technology",
+            "content": "A new AI model has achieved state-of-the-art results.",
+        },
+        {
+            "title": "Local Team Wins Championship",
+            "url": "https://example.com/local-team-wins",
+            "source": "Sports Daily",
+            "published_date": "2023-10-01",
+            "description": "The local team has won the championship in a thrilling final.",
+            "image_url": "https://example.com/local-team-wins.jpg",
+            "category": "sports",
+            "content": "The local team has won the championship in a thrilling final.",
+        },
+    ]
 
     # Read email recipients from environment variable
     email_recipients = ["sollal@solomongp.com"]

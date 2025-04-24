@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Typing style guide:
+ - Use built-in generics: dict[K, V] instead of Dict[K, V]
+ - Use pipe syntax: T | None instead of Optional[T]
+ - Use pipe syntax: X | Y instead of Union[X, Y]
+ - Use TypedDict from typing_extensions, not from typing (deprecated in 3.9+)

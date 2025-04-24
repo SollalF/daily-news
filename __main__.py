@@ -5,73 +5,24 @@ Main module for generating and sending daily news emails.
 Fetches news content and sends it to subscribers.
 """
 
-import json
-import os
 import sys
 import traceback
 from http import HTTPStatus
 
-import openai
 from dotenv import load_dotenv
+
+import ai_services
 from email_sender import send_news_email
-from news_fetcher import fetch_top_news
+from news_fetcher import NewsResult, fetch_top_news
+from settings import (
+    DEFAULT_CATEGORIES,
+    DEFAULT_EMAIL_RECIPIENTS,
+    DEFAULT_MAX_NEWS_PER_CATEGORY,
+    DEFAULT_USER_INTERESTS,
+)
 
 # Try to load from .env file if it exists, otherwise use system env vars
 _ = load_dotenv()
-
-# Ensure the API key is set correctly
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-DEFAULT_CATEGORIES = ["latest"]
-DEFAULT_MAX_NEWS_PER_CATEGORY = 50
-DEFAULT_PROMPT = """
- - Summarize the following articles: {articles}. 
- - Output to HTML format. 
- - I work in AI. If there is an important AI news, especially AI in education, I want to be the first one to know it. 
- - If there are highly important news to me, display a callout at the top with a short summary of these news. 
- - Then prioritise the articles based on my interests.
- - Interests (In order of priority): 
-    - GPT 4o image model
-    - AI
-    - Innovations and news that can help me be more productive as a software engineer and product manager
-    - Scandals, security issues, great innovations, . 
- - Ignore: inverstments, business.
- - Do not include a ```html tag in the output.
-"""
-
-DEFAULT_EMAIL_RECIPIENTS = ["sollal@solomongp.com"]
-
-
-def summarize_articles(articles, prompt):
-    """
-    Summarize articles using OpenAI's API.
-
-    Args:
-        articles: List of articles to summarize
-        prompt: Prompt to guide the summarization
-
-    Returns:
-        Summary of the articles
-    """
-    if "{articles}" not in prompt:
-        prompt += " {articles}"
-
-    response = openai.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {
-                "role": "user",
-                "content": prompt.format(articles=json.dumps(articles)),
-            },
-        ],
-    )
-    summary = response.choices[0].message.content
-
-    if not summary:
-        raise ValueError("Failed to summarize news")
-
-    return summary
 
 
 def main(args):
@@ -85,23 +36,40 @@ def main(args):
         Response dictionary with success status and message
     """
     try:
-        to_emails = args.get("to_emails")
-
-        if not to_emails or to_emails == [""]:
+        if "to_emails" in args:
+            to_emails = args["to_emails"]
+        else:
             raise ValueError(f"Email recipients not found in arguments {args}")
 
         # Get categories from args or default to DEFAULT_CATEGORIES
-        categories = args.get("categories", DEFAULT_CATEGORIES)
+        if "categories" in args:
+            categories = args["categories"]
+            print(f"[INFO] Using categories: {categories}")
+        else:
+            categories = DEFAULT_CATEGORIES
+            print(f"[INFO] Using default categories: {categories}")
 
         # Get max news per category from args or default to DEFAULT_MAX_NEWS_PER_CATEGORY
-        max_news_per_category = args.get(
-            "max_news_per_category", DEFAULT_MAX_NEWS_PER_CATEGORY
+        if "max_news_per_category" in args:
+            max_news_per_category = args["max_news_per_category"]
+            print(f"[INFO] Using max news per category: {max_news_per_category}")
+        else:
+            max_news_per_category = DEFAULT_MAX_NEWS_PER_CATEGORY
+            print(
+                f"[INFO] Using default max news per category: {max_news_per_category}"
+            )
+
+        # Get user interests if provided
+        if "user_interests" in args:
+            user_interests = args["user_interests"]
+            print(f"[INFO] Using user interests: {user_interests}")
+        else:
+            user_interests = DEFAULT_USER_INTERESTS
+            print(f"[INFO] Using default user interests: {user_interests}")
+
+        news_result: NewsResult = fetch_top_news(
+            categories, user_interests, max_news_per_category
         )
-
-        prompt = args.get("prompt", DEFAULT_PROMPT)
-
-        # Fetch news
-        news_result = fetch_top_news(categories, max_news_per_category)
 
         if not news_result.get("success"):
             return {
@@ -113,22 +81,16 @@ def main(args):
                 "statusCode": HTTPStatus.INTERNAL_SERVER_ERROR,
             }
 
-        if "news" in news_result:
-            # Summarize news articles
-            summarized_news = summarize_articles(news_result["news"], prompt)
+        # Summarize and send the news
+        summarized_news = ai_services.summarize_articles(
+            news_result["news"], user_interests=user_interests
+        )
 
-            # Send summarized news via email
-            email_result = send_news_email(
-                news_result["news"], to_emails, summarized_news
-            )
-        else:
-            return {
-                "body": {
-                    "success": False,
-                    "message": "No news data available to send",
-                },
-                "statusCode": HTTPStatus.INTERNAL_SERVER_ERROR,
-            }
+        email_result = send_news_email(
+            news_result["news"],
+            to_emails,
+            summarized_news,
+        )
 
         response = {
             "body": {
@@ -141,6 +103,8 @@ def main(args):
 
     except Exception as e:
         tb = traceback.format_exc()
+        print(f"Error in main function: {str(e)}")
+        print(tb)
         return {
             "body": {
                 "success": False,
@@ -152,7 +116,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-
     if "--test" in sys.argv:
         if "--emails" in sys.argv:
             email_index = sys.argv.index("--emails") + 1
@@ -172,13 +135,21 @@ if __name__ == "__main__":
         else:
             categories = DEFAULT_CATEGORIES
 
-        if "--prompt" in sys.argv:
-            prompt_index = sys.argv.index("--prompt") + 1
-            if prompt_index < len(sys.argv):
-                prompt = sys.argv[prompt_index]
+        # Get user interests (primary customization point)
+        user_interests = DEFAULT_USER_INTERESTS
+        if "--interests" in sys.argv:
+            interests_index = sys.argv.index("--interests") + 1
+            if interests_index < len(sys.argv):
+                user_interests = sys.argv[interests_index]
             else:
-                raise ValueError("No prompt provided after --prompt argument")
-        else:
-            prompt = DEFAULT_PROMPT
+                raise ValueError("No interests provided after --interests argument")
 
-        _ = main({"to_emails": to_emails, "categories": categories, "prompt": prompt})
+        # Build the args dict with user interests
+        args = {
+            "to_emails": to_emails,
+            "categories": categories,
+            "user_interests": user_interests,
+            "max_news_per_category": DEFAULT_MAX_NEWS_PER_CATEGORY,
+        }
+
+        _ = main(args)

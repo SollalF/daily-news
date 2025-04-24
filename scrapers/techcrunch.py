@@ -4,10 +4,8 @@ TechCrunch scraper implementation.
 
 import sys
 from datetime import datetime
-from urllib.parse import urljoin
 
-import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 # For Python 3.11, we need typing_extensions for @override
 from typing_extensions import override
@@ -20,147 +18,237 @@ class TechCrunchScraper(base.NewsScraper):
 
     def __init__(self):
         """Initialize the TechCrunch scraper."""
-        super().__init__(source_name="TechCrunch")
-        self.base_url: str = "https://techcrunch.com"
-        self.category_urls: dict[str, str] = {
-            "default": "/latest ",
-            "latest": "/latest ",
-            "ai": "/category/artificial-intelligence",
-            "amazon": "/tag/amazon",
-            "apps": "/category/apps",
-            "biotech-health": "/category/biotech-health",
-            "climate": "/category/climate",
-            "cloud": "/tag/cloud-computing",
-            "commerce": "/category/commerce",
-            "crypto": "/category/cryptocurrency",
-            "enterprise": "/category/enterprise",
-            "electric vehicles": "/tag/evs",
-            "fintech": "/category/fintech",
-            "fundraising": "/category/fundraising",
-            "gadgets": "/category/gadgets",
-            "gaming": "/category/gaming",
-            "google": "/tag/google",
-            "government": "/category/government-policy",
-            "hardware": "/category/hardware",
-            "instagram": "/tag/instagram",
-            "layoffs": "/tag/layoffs",
-            "media entertainment": "/category/media-entertainment",
-            "meta": "/tag/meta",
-            "microsoft": "/tag/microsoft",
-            "privacy": "/category/privacy",
-            "robotics": "/category/robots",
-            "social": "/category/social",
-            "space": "/category/space",
-            "startups": "/category/startups",
-            "tiktok": "/tags/tiktok",
-            "transportation": "/category/transportation",
-            "venture": "/category/venture",
-        }
-
-    @override
-    def get_available_categories(self) -> list[str]:
-        """Get available categories for TechCrunch."""
-        return list(self.category_urls.keys())
-
-    @override
-    def fetch_articles(
-        self, category: str = "default", max_articles: int = 5
-    ) -> list[base.NewsArticle]:
-        # Log the category and number of articles being fetched
-        print(
-            f"[INFO] Fetching articles for category: {category}, max articles: {max_articles}"
+        super().__init__(
+            source_name="TechCrunch",
+            base_url="https://techcrunch.com",
+            category_urls={
+                "default": "/latest ",
+                "latest": "/latest ",
+                "ai": "/category/artificial-intelligence",
+                "amazon": "/tag/amazon",
+                "apps": "/category/apps",
+                "biotech-health": "/category/biotech-health",
+                "climate": "/category/climate",
+                "cloud": "/tag/cloud-computing",
+                "commerce": "/category/commerce",
+                "crypto": "/category/cryptocurrency",
+                "enterprise": "/category/enterprise",
+                "electric vehicles": "/tag/evs",
+                "fintech": "/category/fintech",
+                "fundraising": "/category/fundraising",
+                "gadgets": "/category/gadgets",
+                "gaming": "/category/gaming",
+                "google": "/tag/google",
+                "government": "/category/government-policy",
+                "hardware": "/category/hardware",
+                "instagram": "/tag/instagram",
+                "layoffs": "/tag/layoffs",
+                "media entertainment": "/category/media-entertainment",
+                "meta": "/tag/meta",
+                "microsoft": "/tag/microsoft",
+                "privacy": "/category/privacy",
+                "robotics": "/category/robots",
+                "social": "/category/social",
+                "space": "/category/space",
+                "startups": "/category/startups",
+                "tiktok": "/tags/tiktok",
+                "transportation": "/category/transportation",
+                "venture": "/category/venture",
+            },
         )
 
-        # Use the right category URL or default to technology news
-        if category not in self.category_urls:
-            print(f"[INFO] Category '{category}' not found. Defaulting to 'default'")
-            category = "default"
+    @override
+    def _extract_article_from_list_item(
+        self, element: Tag, category: str
+    ) -> base.NewsArticle | None:
+        """
+        Extract article information from a list item element.
 
-        category_path = self.category_urls[category]
-        url = (
-            self.base_url
-            if category_path == ""
-            else urljoin(self.base_url, category_path)
+        Args:
+            element: The BeautifulSoup element containing article information.
+            category: The category the article belongs to.
+
+        Returns:
+            NewsArticle object or None if extraction failed.
+        """
+        # Extract title and URL
+        title_elem = element.select_one("h3.loop-card__title a.loop-card__title-link")
+        if not title_elem:
+            return None
+
+        title = title_elem.get_text(strip=True)
+        article_url = str(title_elem.get("href", ""))
+
+        # Ensure article_url is valid
+        if not article_url:
+            return None
+
+        # Extract description
+        desc_elem = element.select_one("div.post-block__content")
+        description = (
+            desc_elem.get_text(strip=True) if desc_elem else "No description available."
         )
-        print(f"[INFO] Fetching URL: {url}")
 
-        response = requests.get(url, timeout=10)
-        if response.status_code != 200:
-            print(
-                f"[ERROR] Failed to fetch TechCrunch {category} news: Status code {response.status_code}"
-            )
-            return []
+        # Extract image URL
+        img_elem = element.select_one("figure.loop-card__figure img")
+        image_url = img_elem.get("src") if img_elem else None
 
-        soup = BeautifulSoup(response.text, "html.parser")
+        # Extract published date
+        time_elem = element.select_one("time")
+        published_date = datetime.now()
+        if time_elem and time_elem.has_attr("datetime"):
+            published_date = datetime.fromisoformat(str(time_elem["datetime"]))
+
+        # Extract category
+        cat_elem = element.select_one(
+            "div.loop-card__cat-group a.loop-card__cat, div.loop-card__cat-group span.loop-card__cat"
+        )
+        card_category = cat_elem.get_text(strip=True) if cat_elem else category
+
+        return base.NewsArticle(
+            title=title,
+            url=str(article_url),
+            description=description,
+            published_date=(
+                published_date.strftime("%Y-%m-%d %H:%M:%S") if published_date else None
+            ),
+            source=self.source_name,
+            image_url=str(image_url) if image_url is not None else None,
+            category=card_category,
+            content=None,  # Don't fetch content at this stage
+        )
+
+    @override
+    def _select_article_elements(
+        self, soup: BeautifulSoup, max_articles: int
+    ) -> list[Tag]:
+        """
+        Select article elements from TechCrunch's HTML structure.
+
+        Args:
+            soup: BeautifulSoup object containing the HTML
+            max_articles: Maximum number of articles to select
+
+        Returns:
+            List of BeautifulSoup Tag objects representing article elements
+        """
         article_elements = soup.select("li.wp-block-post")
         print(
             f"[INFO] Found {len(article_elements)} article elements. Extracting up to {max_articles}"
         )
+        return article_elements[:max_articles]
 
-        articles: list[base.NewsArticle] = []
+    def _extract_title(self, soup: BeautifulSoup) -> str:
+        """
+        Extract the title from an article page.
 
-        for _, element in enumerate(article_elements[:max_articles], start=1):
-            # Title and URL
-            title_elem = element.select_one(
-                "h3.loop-card__title a.loop-card__title-link"
-            )
-            if not title_elem:
-                continue
-            title = title_elem.get_text(strip=True)
-            article_url = str(title_elem.get("href", ""))
+        Args:
+            soup: BeautifulSoup object containing the article HTML.
 
-            # Ensure article_url is not None
-            if not article_url:
-                continue
+        Returns:
+            The article title as a string.
+        """
+        # First try to get the title from the h1.article-hero__title element
+        title_elem = soup.select_one("h1.article-hero__title")
+        if title_elem:
+            return title_elem.get_text(strip=True)
 
-            # Fetch full article content
-            full_article = self.fetch_article_by_url(article_url)
+        # Fallback to the original method
+        data_title_elem = soup.select_one("main[data-title-observer]")
+        title = (
+            data_title_elem.get("data-title-observer", "No title found")
+            if data_title_elem
+            else "No title found"
+        )
+        return str(title) if title else "No title found"
 
-            # Description (fallback if not present)
-            desc_elem = element.select_one("div.post-block__content")
-            description = (
-                desc_elem.get_text(strip=True)
-                if desc_elem
-                else "No description available."
-            )
+    def _extract_description(self, soup: BeautifulSoup) -> str:
+        """
+        Extract the description from an article page.
 
-            # Image
-            img_elem = element.select_one("figure.loop-card__figure img")
-            image_url = img_elem.get("src") if img_elem else None
+        Args:
+            soup: BeautifulSoup object containing the article HTML.
 
-            # Published date
-            time_elem = element.select_one("time")
-            published_date = datetime.now()
-            if time_elem and time_elem.has_attr("datetime"):
-                published_date = datetime.fromisoformat(str(time_elem["datetime"]))
+        Returns:
+            The article description as a string.
+        """
+        desc_elem = soup.select_one("p#speakable-summary")
+        if desc_elem:
+            return desc_elem.get_text(strip=True)
 
-            # Category
-            cat_elem = element.select_one(
-                "div.loop-card__cat-group a.loop-card__cat, div.loop-card__cat-group span.loop-card__cat"
-            )
-            card_category = cat_elem.get_text(strip=True) if cat_elem else category
+        p_elem = soup.select_one("div.entry-content p")
+        return p_elem.get_text(strip=True) if p_elem else "No description available."
 
-            articles.append(
-                {
-                    "title": title,
-                    "url": str(article_url) if article_url is not None else "",
-                    "description": description,
-                    "published_date": (
-                        published_date.strftime("%Y-%m-%d %H:%M:%S")
-                        if published_date
-                        else None
-                    ),
-                    "source": self.source_name,
-                    "image_url": str(image_url) if image_url is not None else None,
-                    "category": card_category,
-                    "content": full_article.get(
-                        "content"
-                    ),  # Add content from full article
-                }
-            )
+    def _extract_published_date(self, soup: BeautifulSoup) -> str | None:
+        """
+        Extract the published date from an article page.
 
-        print(f"[INFO] Total articles fetched: {len(articles)}")
-        return articles
+        Args:
+            soup: BeautifulSoup object containing the article HTML.
+
+        Returns:
+            The published date as a formatted string or None if extraction failed.
+        """
+        time_elem = soup.select_one("time.article__timestamp")
+        if time_elem and time_elem.has_attr("datetime"):
+            try:
+                date = datetime.fromisoformat(str(time_elem["datetime"]))
+                return date.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                pass
+        return None
+
+    def _extract_image_url(self, soup: BeautifulSoup) -> str | None:
+        """
+        Extract the image URL from an article page.
+
+        Args:
+            soup: BeautifulSoup object containing the article HTML.
+
+        Returns:
+            The image URL as a string or None if extraction failed.
+        """
+        img_elem = soup.select_one("figure.article__featured-image img")
+        return str(img_elem.get("src")) if img_elem and img_elem.get("src") else None
+
+    def _extract_content(self, soup: BeautifulSoup) -> str:
+        """
+        Extract the content from an article page.
+
+        Args:
+            soup: BeautifulSoup object containing the article HTML.
+
+        Returns:
+            The article content as a string.
+        """
+        content_elem = soup.select_one("div.entry-content")
+        return (
+            content_elem.get_text(strip=True)
+            if content_elem
+            else "No content available."
+        )
+
+    @override
+    def _extract_article_info(
+        self, news_article: base.NewsArticle, soup: BeautifulSoup
+    ) -> base.NewsArticle:
+        """
+        Extract all article information from a soup object in one go.
+
+        Args:
+            news_article: Partially populated NewsArticle object
+            soup: BeautifulSoup object containing the article HTML
+
+        Returns:
+            A NewsArticle object with all extracted information
+        """
+        news_article["title"] = self._extract_title(soup)
+        news_article["description"] = self._extract_description(soup)
+        news_article["published_date"] = self._extract_published_date(soup)
+        news_article["image_url"] = self._extract_image_url(soup)
+        news_article["content"] = self._extract_content(soup)
+
+        return news_article
 
     @override
     def fetch_article_by_url(self, url: str) -> base.NewsArticle:
@@ -169,77 +257,29 @@ class TechCrunchScraper(base.NewsScraper):
 
         Args:
             url: The URL of the news article to fetch.
+            category: Optional category for the article.
 
         Returns:
             A NewsArticle object representing the article at the given URL.
         """
-        response = requests.get(url, timeout=10)
-        if response.status_code != 200:
-            raise ValueError(
-                f"Failed to fetch article: Status code {response.status_code}"
-            )
+        soup = self.fetch_html_content(url)
+        if not soup:
+            raise ValueError(f"Failed to fetch article from URL: {url}")
 
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        # Extract title
-        title_elem = soup.select_one("main[data-title-observer]")
-        title = (
-            title_elem.get("data-title-observer", "No title found")
-            if title_elem
-            else "No title found"
-        )
-
-        # Extract description (first paragraph or meta description)
-        desc_elem = soup.select_one("p#speakable-summary")
-        if desc_elem:
-            description = desc_elem.get_text(strip=True)
-        else:
-            p_elem = soup.select_one("div.entry-content p")
-            description = (
-                p_elem.get_text(strip=True) if p_elem else "No description available."
-            )
-
-        # Extract published date
-        time_elem = soup.select_one("time.article__timestamp")
-        published_date = None
-        if time_elem and time_elem.has_attr("datetime"):
-            try:
-                published_date = datetime.fromisoformat(str(time_elem["datetime"]))
-            except Exception:
-                published_date = None
-
-        # Extract image URL
-        img_elem = soup.select_one("figure.article__featured-image img")
-        image_url = (
-            str(img_elem.get("src")) if img_elem and img_elem.get("src") else None
-        )
-
-        # Extract category (first category link)
-        cat_elem = soup.select_one("a.article__section")
-        category = cat_elem.get_text(strip=True) if cat_elem else "technology"
-
-        # Extract content
-        content_elem = soup.select_one("div.entry-content")
-        content = (
-            content_elem.get_text(strip=True)
-            if content_elem
-            else "No content available."
-        )
-
-        title = str(title) if title else "No title found"
-
-        return base.NewsArticle(
-            title=title,
+        # Create an empty article object with just the URL and source
+        article = base.NewsArticle(
+            title="",
             url=url,
-            description=description,
-            published_date=(
-                published_date.strftime("%Y-%m-%d %H:%M:%S") if published_date else None
-            ),
+            description=None,
+            published_date=None,
             source=self.source_name,
-            image_url=image_url,
-            category=category,
-            content=content,  # Add content field with parsed content
+            image_url=None,
+            content=None,
+            category=None,
         )
+
+        # Extract all article info at once using the helper method
+        return self._extract_article_info(article, soup)
 
 
 # Allow running this scraper standalone for testing
