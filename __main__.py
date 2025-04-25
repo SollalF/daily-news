@@ -13,11 +13,15 @@ from dotenv import load_dotenv
 
 import ai_services
 from email_sender import send_news_email
+from logger import logger, setup_logger
 from news_fetcher import NewsResult, fetch_top_news
 from settings import settings
 
 # Try to load from .env file if it exists, otherwise use system env vars
 _ = load_dotenv()
+
+# Initialize the logger
+setup_logger()
 
 
 def main(args):
@@ -39,34 +43,33 @@ def main(args):
         # Get categories from args or default to DEFAULT_CATEGORIES
         if "categories" in args:
             categories = args["categories"]
-            print(f"[INFO] Using categories: {categories}")
+            logger.info(f"Using categories: {categories}")
         else:
             categories = settings.news.categories
-            print(f"[INFO] Using default categories: {categories}")
+            logger.info(f"Using default categories: {categories}")
 
         # Get max news per category from args or default to DEFAULT_MAX_NEWS_PER_CATEGORY
         if "max_news_per_category" in args:
             max_news_per_category = args["max_news_per_category"]
-            print(f"[INFO] Using max news per category: {max_news_per_category}")
+            logger.info(f"Using max news per category: {max_news_per_category}")
         else:
             max_news_per_category = settings.news.max_per_category
-            print(
-                f"[INFO] Using default max news per category: {max_news_per_category}"
-            )
+            logger.info(f"Using default max news per category: {max_news_per_category}")
 
         # Get user interests if provided
         if "user_interests" in args:
             user_interests = args["user_interests"]
-            print(f"[INFO] Using user interests: {user_interests}")
+            logger.info(f"Using user interests: {user_interests}")
         else:
             user_interests = settings.news.user_interests
-            print(f"[INFO] Using default user interests: {user_interests}")
+            logger.info(f"Using default user interests: {user_interests}")
 
         news_result: NewsResult = fetch_top_news(
             categories, user_interests, max_news_per_category
         )
 
         if not news_result.get("success"):
+            logger.error(f"Failed to fetch news: {news_result.get('error')}")
             return {
                 "body": {
                     "success": False,
@@ -76,17 +79,21 @@ def main(args):
                 "statusCode": HTTPStatus.INTERNAL_SERVER_ERROR,
             }
 
+        # Get news articles from result, handling optional key safely
+        news_articles = news_result.get("news", [])
+
         # Summarize and send the news
         summarized_news = ai_services.summarize_articles(
-            news_result["news"], user_interests=user_interests
+            news_articles, user_interests=user_interests
         )
 
         email_result = send_news_email(
-            news_result["news"],
+            news_articles,
             to_emails,
             summarized_news,
         )
 
+        logger.info("News summarized and sent successfully")
         response = {
             "body": {
                 "success": True,
@@ -98,8 +105,8 @@ def main(args):
 
     except Exception as e:
         tb = traceback.format_exc()
-        print(f"Error in main function: {str(e)}")
-        print(tb)
+        logger.error(f"Error in main function: {str(e)}")
+        logger.debug(tb)
         return {
             "body": {
                 "success": False,
@@ -112,6 +119,7 @@ def main(args):
 
 if __name__ == "__main__":
     if "--test" in sys.argv:
+        logger.info("Running in test mode")
         if "--emails" in sys.argv:
             email_index = sys.argv.index("--emails") + 1
             if email_index < len(sys.argv):

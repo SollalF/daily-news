@@ -8,11 +8,12 @@ import logging
 
 import openai  # type: ignore
 
+from logger import logger
 from scrapers.base import NewsArticle
 from settings import Settings, settings
 
-# Configure logging
-logger = logging.getLogger(__name__)
+# Configure logging - use the main application logger instead
+# logger = logging.getLogger(__name__)
 
 
 class AIServiceError(Exception):

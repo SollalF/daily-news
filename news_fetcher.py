@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 # Handle imports for both script and module use cases
 import ai_services
+from logger import logger
 from scrapers import base, manager  # type: ignore
 from settings import settings
 
@@ -45,6 +46,7 @@ def fetch_top_news(
 
         # If no articles were found, return error
         if not initial_articles:
+            logger.error("Failed to fetch news for any category")
             return {
                 "success": False,
                 "message": "Failed to fetch news for any category",
@@ -60,12 +62,14 @@ def fetch_top_news(
         detailed_news = fetch_article_details(articles_to_scrape)
 
         if not detailed_news:
+            logger.error("Failed to fetch detailed news for any article")
             return {
                 "success": False,
                 "message": "Failed to fetch detailed news for any article",
                 "error": "NO_DETAILED_RESULTS",
             }
 
+        logger.info(f"Successfully fetched {len(detailed_news)} news articles")
         return {
             "success": True,
             "message": "Successfully fetched news",
@@ -74,7 +78,7 @@ def fetch_top_news(
 
     except Exception as e:
         # Log the error for debugging purposes
-        print(f"Error fetching news: {str(e)}")
+        logger.error(f"Error fetching news: {str(e)}")
         return {
             "success": False,
             "message": f"Error fetching news: {str(e)}",
@@ -106,10 +110,13 @@ def fetch_initial_article_list(
             max_articles_per_source=max(5, max_news_per_category // len(categories)),
         )
 
+        logger.info(
+            f"Fetched {len(all_articles)} initial articles across {len(categories)} categories"
+        )
         return all_articles
     except Exception as e:
         # Log the error for debugging purposes
-        print(f"Error when fetching initial article list: {str(e)}")
+        logger.error(f"Error when fetching initial article list: {str(e)}")
         return []
 
 
@@ -125,7 +132,7 @@ def fetch_article_details(
     Returns:
         List of detailed articles with NewsArticle type
     """
-    print(f"[INFO] Fetching detailed content for {len(selected_articles)} articles")
+    logger.info(f"Fetching detailed content for {len(selected_articles)} articles")
 
     detailed_articles: list[base.NewsArticle] = []
 
@@ -156,15 +163,19 @@ def fetch_article_details(
             else:
                 # If we can't find a matching scraper, just use the original article
                 # The article is already a NewsArticle, so we can append it directly
-                print(f"No scraper found for {article['url']}, using original article")
+                logger.warning(
+                    f"No scraper found for {article['url']}, using original article"
+                )
                 detailed_articles.append(article)
 
         except Exception as e:
-            print(f"Error fetching detailed content for {article['url']}: {str(e)}")
+            logger.error(
+                f"Error fetching detailed content for {article['url']}: {str(e)}"
+            )
             # Keep the original article if we can't get more details
             detailed_articles.append(article)
 
-    print(f"[INFO] Fetched {len(detailed_articles)} detailed articles")
+    logger.info(f"Fetched {len(detailed_articles)} detailed articles")
 
     return detailed_articles
 
@@ -285,7 +296,7 @@ def fetch_from_scrapers(
         return news_by_category
     except Exception as e:
         # Log the error for debugging purposes
-        print(f"Error when fetching from scrapers: {str(e)}")
+        logger.error(f"Error when fetching from scrapers: {str(e)}")
         return {}
 
 
@@ -297,8 +308,8 @@ if __name__ == "__main__":
 
     # Print the result
     if result.get("success"):
-        print("Successfully fetched news:")
+        logger.info("Successfully fetched news:")
         for article in result.get("news", []):
-            print(f"Title: {article['title']}, Source: {article['source']}")
+            logger.info(f"Title: {article['title']}, Source: {article['source']}")
     else:
-        print(f"Failed to fetch news: {result.get('message')}")
+        logger.error(f"Failed to fetch news: {result.get('message')}")

@@ -4,7 +4,7 @@ Contains all configurable parameters, prompts, and default values.
 """
 
 import os
-from typing import Any
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, validator
 
@@ -100,12 +100,36 @@ Please ignore news about investments, business funding, or other less relevant t
     )
 
 
+class LoggingSettings(BaseModel):
+    """Logging configuration settings."""
+
+    level: Literal["debug", "info", "warning", "error", "critical"] = Field(
+        default="info", description="Default logging level"
+    )
+    log_file: str | None = Field(
+        default="logs/daily-news.log",
+        description="Path to log file (None for console only)",
+    )
+    format: str = Field(
+        default="%(levelname)s - %(message)s",
+        description="Log message format",
+    )
+    max_file_size: int = Field(
+        default=10 * 1024 * 1024,  # 10MB
+        description="Maximum size of log file before rotation (in bytes)",
+    )
+    backup_count: int = Field(
+        default=3, description="Number of backup log files to keep"
+    )
+
+
 class Settings(BaseModel):
     """Application settings model."""
 
     email: EmailSettings = Field(default_factory=EmailSettings)
     ai: AISettings = Field(default_factory=AISettings)
     news: NewsSettings = Field(default_factory=NewsSettings)
+    logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
     class Config:
         """Pydantic configuration."""

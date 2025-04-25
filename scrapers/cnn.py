@@ -12,6 +12,8 @@ from bs4.element import PageElement
 # For Python 3.11, we need typing_extensions for @override
 from typing_extensions import override
 
+from logger import logger
+
 from . import base
 
 BASE_URL = "https://www.cnn.com"
@@ -106,8 +108,8 @@ class CNNScraper(base.NewsScraper):
         selector_string = ", ".join(article_selectors)
         article_elements = soup.select(selector_string)
 
-        print(
-            f"[INFO] Found {len(article_elements)} article elements. Extracting up to {max_articles}"
+        logger.info(
+            f"Found {len(article_elements)} article elements. Extracting up to {max_articles}"
         )
 
         # Return only what we need based on max_articles
@@ -427,37 +429,56 @@ class CNNScraper(base.NewsScraper):
 
 # Allow running this scraper standalone for testing
 if __name__ == "__main__":
-    # Create scraper
+    import sys
+
+    from dotenv import load_dotenv
+
+    # Load environment variables
+    _ = load_dotenv()
+
+    # Create a scraper
     scraper = CNNScraper()
 
-    # Get command line arguments or use defaults
-    selected_category_str = sys.argv[1] if len(sys.argv) > 1 else "world"
-    article_limit = int(sys.argv[2]) if len(sys.argv) > 2 else 5
+    # Get command line arguments for category and limit
+    selected_category = sys.argv[1] if len(sys.argv) > 1 else "world"
+    article_limit = int(sys.argv[2]) if len(sys.argv) > 2 else 3
 
-    # Use the category string directly
-    selected_category = selected_category_str
+    # Display available categories
+    logger.info(
+        f"Available categories: {', '.join(scraper.get_available_categories())}"
+    )
+    logger.info(
+        f"Fetching up to {article_limit} articles from category: {selected_category}"
+    )
 
-    # Print available categories
-    print(f"Available categories: {', '.join(scraper.get_available_categories())}")
-    print(f"Fetching up to {article_limit} articles from category: {selected_category}")
-
-    # Fetch and print articles
+    # Fetch articles
     fetched_articles = scraper.fetch_articles(selected_category, article_limit)
 
+    # Display results
     if not fetched_articles:
-        print("No articles found.")
+        logger.info("No articles found.")
     else:
-        print(f"Found {len(fetched_articles)} articles:")
+        logger.info(f"Found {len(fetched_articles)} articles:")
         for i, fetched_article in enumerate(fetched_articles, 1):
-            print(f"\n{i}. {fetched_article['title']}")
-            print(f"   URL: {fetched_article['url']}")
-            print(f"   Date: {fetched_article['published_date']}")
-            if fetched_article["description"]:
-                print(f"   Description: {fetched_article['description'][:150]}...")
-            if fetched_article["content"]:
-                content_preview = (
-                    fetched_article["content"][:150] + "..."
-                    if len(fetched_article["content"]) > 150
-                    else fetched_article["content"]
+            logger.info(f"{i}. {fetched_article['title']}")
+            logger.info(f"   URL: {fetched_article['url']}")
+
+            # Show date if available
+            if fetched_article.get("published_date"):
+                logger.info(f"   Date: {fetched_article['published_date']}")
+
+            # Show description preview if available
+            description = fetched_article.get("description")
+            if description:
+                desc_preview = (
+                    description[:150] + "..." if len(description) > 150 else description
                 )
-                print(f"   Content preview: {content_preview}")
+                logger.info(f"   Description: {desc_preview}")
+
+            # Show content preview if available
+            content = fetched_article.get("content")
+            if content:
+                content_preview = (
+                    content[:150] + "..." if len(content) > 150 else content
+                )
+                logger.info(f"   Content preview: {content_preview}")

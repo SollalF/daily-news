@@ -241,30 +241,30 @@ if __name__ == "__main__":
     selected_sources = sys.argv[1:] if len(sys.argv) > 1 else None
 
     # Print available sources
-    print(f"Available sources: {', '.join(manager.get_available_sources())}")
+    logger.info(f"Available sources: {', '.join(manager.get_available_sources())}")
 
     # Print available categories for each source
     available_categories = manager.get_available_categories()
-    print("\nAvailable categories by source:")
+    logger.info("Available categories by source:")
     for src_name, cats in available_categories.items():
-        print(f"  {src_name}: {', '.join(cats)}")
+        logger.info(f"  {src_name}: {', '.join(cats)}")
 
     # Fetch news using specific sources or all sources
-    print(f"\nFetching news from {selected_sources or 'all'} sources...")
-    news = manager.fetch_news(sources=selected_sources, max_articles_per_source=3)
+    logger.info(f"Fetching news from {selected_sources or 'all'} sources...")
+    news = manager.fetch_headlines(sources=selected_sources, max_articles_per_source=5)
 
     # Print results
-    print(f"\nTotal articles: {len(news)}")
-    for i, article in enumerate(news[:10], 1):
-        print(f"\n{i}. {article['title']} [{article['source']}]")
-        print(f"   URL: {article['url']}")
-        print(f"   Date: {article.get('published_date', 'No date')}")
-        print(f"   Category: {article.get('category', 'No category')}")
+    logger.info(f"Total articles: {len(news)}")
+    for i, article in enumerate(news, 1):
+        logger.info(f"{i}. {article['title']} [{article['source']}]")
+        logger.info(f"   URL: {article['url']}")
+        logger.info(f"   Date: {article.get('published_date', 'No date')}")
+        logger.info(f"   Category: {article.get('category', 'No category')}")
 
-    # Display combined by category
-    print("\n=== ARTICLES BY CATEGORY ===")
-    combined_by_category = manager.organize_by_category(news)
-    for cat_name, cat_articles in combined_by_category.items():
-        print(f"\n  Category: {cat_name} ({len(cat_articles)} articles)")
-        for i, article in enumerate(cat_articles[:3], 1):
-            print(f"    {i}. {article['title']} [{article['source']}]")
+    # Organize by category and display
+    logger.info("=== ARTICLES BY CATEGORY ===")
+    by_category = manager.organize_by_category(news)
+    for cat_name, cat_articles in by_category.items():
+        logger.info(f"Category: {cat_name} ({len(cat_articles)} articles)")
+        for i, article in enumerate(cat_articles, 1):
+            logger.info(f"  {i}. {article['title']} [{article['source']}]")

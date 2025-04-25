@@ -9,6 +9,8 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup, Tag
 
+from logger import logger
+
 
 class NewsArticle(TypedDict):
     """TypedDict representing the structure of a news article."""
@@ -60,11 +62,11 @@ class NewsScraper(ABC):
         try:
             url = self.get_category_url(category)
         except ValueError:
-            print(f"[WARNING] Category '{category}' not found. Skipping.")
+            logger.warning(f"Category '{category}' not found. Skipping.")
             return []
 
-        print(
-            f"[INFO] Fetching articles from {url} in category {category} with max {max_articles} articles"
+        logger.info(
+            f"Fetching articles from {url} in category {category} with max {max_articles} articles"
         )
 
         # Fetch and parse the HTML
@@ -83,7 +85,7 @@ class NewsScraper(ABC):
             if article:
                 articles.append(article)
 
-        print(f"[INFO] Total articles fetched: {len(articles)}")
+        logger.info(f"Total articles fetched: {len(articles)}")
         return articles
 
     @abstractmethod
@@ -144,14 +146,14 @@ class NewsScraper(ABC):
         try:
             response = requests.get(url, timeout=10)
             if response.status_code != 200:
-                print(
-                    f"[ERROR] Failed to fetch URL {url}: Status code {response.status_code}"
+                logger.error(
+                    f"Failed to fetch URL {url}: Status code {response.status_code}"
                 )
                 return None
 
             return BeautifulSoup(response.text, "html.parser")
         except Exception as e:
-            print(f"[ERROR] Exception while fetching {url}: {e}")
+            logger.error(f"Exception while fetching {url}: {e}")
             return None
 
     @abstractmethod

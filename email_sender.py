@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, TypedDict
 
 import pytz
+from logger import logger
 from python_http_client.client import Response
 from sendgrid import SendGridAPIClient  # pyright: ignore[reportMissingTypeStubs]
 from sendgrid.helpers.mail import Mail  # pyright: ignore[reportMissingTypeStubs]
@@ -40,6 +41,7 @@ def send_news_email(
     """
     key = os.getenv("SENDGRID_API_KEY", "")
     if not key:
+        logger.error("SendGrid API key not found in environment variables")
         raise ValueError("SendGrid API key not found in environment variables")
 
     # Create message
@@ -59,7 +61,7 @@ def send_news_email(
     response: Response = sg.send(message)
 
     # Log the response status for debugging purposes
-    print(f"Email sent with status code: {response.status_code}")
+    logger.info(f"Email sent with status code: {response.status_code}")
 
     return {
         "statusCode": response.status_code,
@@ -174,4 +176,4 @@ if __name__ == "__main__":
     response = send_news_email(
         sample_news_data, email_recipients, "This is a summary of the news"
     )
-    print("Email send response:", response)
+    logger.info(f"Email send response: {response}")

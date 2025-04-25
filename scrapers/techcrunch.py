@@ -10,6 +10,8 @@ from bs4 import BeautifulSoup, Tag
 # For Python 3.11, we need typing_extensions for @override
 from typing_extensions import override
 
+from logger import logger
+
 from . import base
 
 
@@ -133,8 +135,8 @@ class TechCrunchScraper(base.NewsScraper):
             List of BeautifulSoup Tag objects representing article elements
         """
         article_elements = soup.select("li.wp-block-post")
-        print(
-            f"[INFO] Found {len(article_elements)} article elements. Extracting up to {max_articles}"
+        logger.info(
+            f"Found {len(article_elements)} article elements. Extracting up to {max_articles}"
         )
         return article_elements[:max_articles]
 
@@ -284,28 +286,40 @@ class TechCrunchScraper(base.NewsScraper):
 
 # Allow running this scraper standalone for testing
 if __name__ == "__main__":
-    # Create scraper
+    import sys
+
+    from dotenv import load_dotenv
+
+    # Load environment variables
+    _ = load_dotenv()
+
+    # Create a scraper
     scraper = TechCrunchScraper()
 
-    # Get command line arguments or use defaults
-    selected_category = sys.argv[1] if len(sys.argv) > 1 else "technology"
-    article_limit = int(sys.argv[2]) if len(sys.argv) > 2 else 5
+    # Get command line arguments for category and limit
+    selected_category = sys.argv[1] if len(sys.argv) > 1 else "ai"
+    article_limit = int(sys.argv[2]) if len(sys.argv) > 2 else 3
 
-    # Print available categories
-    print(f"Available categories: {', '.join(scraper.get_available_categories())}")
-    print(f"Fetching up to {article_limit} articles from category: {selected_category}")
+    # Display available categories
+    logger.info(
+        f"Available categories: {', '.join(scraper.get_available_categories())}"
+    )
+    logger.info(
+        f"Fetching up to {article_limit} articles from category: {selected_category}"
+    )
 
-    # Fetch and print articles
+    # Fetch articles
     fetched_articles = scraper.fetch_articles(selected_category, article_limit)
 
+    # Display results
     if not fetched_articles:
-        print("No articles found.")
+        logger.info("No articles found.")
     else:
-        print(f"Found {len(fetched_articles)} articles:")
+        logger.info(f"Found {len(fetched_articles)} articles:")
         for i, fetched_article in enumerate(fetched_articles, 1):
-            print(f"\n{i}. {fetched_article['title']}")
-            print(f"   URL: {fetched_article['url']}")
-            print(f"   Date: {fetched_article['published_date']}")
-            print(f"   Content: {fetched_article['content']}")
+            logger.info(f"{i}. {fetched_article['title']}")
+            logger.info(f"   URL: {fetched_article['url']}")
+            logger.info(f"   Date: {fetched_article['published_date']}")
+            logger.info(f"   Content: {fetched_article['content']}")
             if fetched_article["description"]:
-                print(f"   Description: {fetched_article['description']}")
+                logger.info(f"   Description: {fetched_article['description']}")
