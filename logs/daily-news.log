@@ -1,0 +1,15 @@
+2025-04-25 19:29:55,293 - daily-news - INFO - Running in test mode
+2025-04-25 19:29:55,293 - daily-news - INFO - Using categories: ['latest', 'ai', 'technology']
+2025-04-25 19:29:55,293 - daily-news - INFO - Using max news per category: 50
+2025-04-25 19:29:55,293 - daily-news - INFO - Using user interests: 
+Topics of interest (in order of priority):
+1. AI news, especially in education and GPT-4o image model updates
+2. Important technological innovations 
+3. News that would help a software engineer and product manager be more productive
+4. Major scandals or security issues in tech
+
+Please ignore news about investments, business funding, or other less relevant topics.
+
+2025-04-25 19:29:57,886 - daily-news - INFO - Fetched 57 initial articles across 3 categories
+2025-04-25 19:30:02,764 - daily-news - ERROR - Error fetching news: Failed after 3 attempts. Errors: ['Error calling OpenAI API: Connection error.', 'Error calling OpenAI API: Connection error.', 'Error calling OpenAI API: Connection error.']
+2025-04-25 19:30:02,764 - daily-news - ERROR - Failed to fetch news: FETCH_ERROR

@@ -19,12 +19,12 @@ from daily_news import main
 @pytest.fixture
 def mock_dependencies():
     """Set up mocks for all dependencies used in the main function."""
-    # Patch the EMAIL_SUMMARY_TEMPLATE to avoid the {articles} error
+    # Use the settings instead of deprecated constants
     with patch(
-        "daily_news.EMAIL_SUMMARY_TEMPLATE",
+        "daily_news.settings.ai.email_summary_template",
         "Mocked summary template for {user_interests}",
     ), patch(
-        "daily_news.ARTICLE_SELECTION_TEMPLATE",
+        "daily_news.settings.ai.article_selection_template",
         "Mocked selection template for {user_interests}",
     ), patch(
         "daily_news.fetch_top_news"

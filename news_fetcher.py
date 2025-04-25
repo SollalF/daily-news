@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 # Handle imports for both script and module use cases
 import ai_services
 from scrapers import base, manager  # type: ignore
+from settings import settings
 
 # Try to load from .env file if it exists
 _ = load_dotenv()
@@ -289,12 +290,10 @@ def fetch_from_scrapers(
 
 
 if __name__ == "__main__":
-    from settings import DEFAULT_USER_INTERESTS
-
     # Test categories
     categories = ["ai", "amazon", "apps"]
     # Fetch top news for test categories
-    result = fetch_top_news(categories, user_interests=DEFAULT_USER_INTERESTS)
+    result = fetch_top_news(categories, user_interests=settings.news.user_interests)
 
     # Print the result
     if result.get("success"):

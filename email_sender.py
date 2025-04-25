@@ -12,7 +12,7 @@ from sendgrid import SendGridAPIClient  # pyright: ignore[reportMissingTypeStubs
 from sendgrid.helpers.mail import Mail  # pyright: ignore[reportMissingTypeStubs]
 
 import scrapers.base as base  # pyright: ignore[reportImplicitRelativeImport]
-from settings import EMAIL_FROM_ADDRESS, EMAIL_SUBJECT_TEMPLATE, SENDGRID_API_KEY
+from settings import settings
 
 
 class EmailResponse(TypedDict):
@@ -38,7 +38,7 @@ def send_news_email(
     Returns:
         EmailResponse with status code and result message
     """
-    key = SENDGRID_API_KEY
+    key = os.getenv("SENDGRID_API_KEY", "")
     if not key:
         raise ValueError("SendGrid API key not found in environment variables")
 
@@ -51,9 +51,9 @@ def send_news_email(
 
     sg: SendGridAPIClient = SendGridAPIClient(key)
     message: Mail = Mail(
-        from_email=EMAIL_FROM_ADDRESS,
+        from_email=settings.email.from_address,
         to_emails=to_emails,
-        subject=EMAIL_SUBJECT_TEMPLATE.format(date=current_date),
+        subject=settings.email.subject_template.format(date=current_date),
         html_content=html_content,
     )
     response: Response = sg.send(message)

@@ -3,59 +3,35 @@ Central configuration settings for the daily news application.
 Contains all configurable parameters, prompts, and default values.
 """
 
-from pydantic import BaseModel, Field
+import os
+from typing import Any
+
+from pydantic import BaseModel, EmailStr, Field, validator
 
 
-class Settings(BaseModel):
-    """Pydantic model for application settings."""
+class EmailSettings(BaseModel):
+    """Email-related settings."""
 
-    # Default configuration
-    default_categories: list[str] = Field(
-        default=["latest", "ai", "technology"],
-        description="Default news categories to fetch",
+    from_address: EmailStr = Field(
+        default="support@goodclass.ai", description="Email sender address"
     )
-    default_max_news_per_category: int = Field(
-        default=50, description="Maximum number of news articles per category"
+    subject_template: str = Field(
+        default="Daily News Digest - {date}", description="Email subject template"
     )
-    default_email_recipients: list[str] = Field(
+    recipients: list[EmailStr] = Field(
         default=["sollal@solomongp.com"], description="Default email recipients"
     )
 
-    # API Configuration
-    openai_api_key: str = Field(default="", description="OpenAI API key")
-    sendgrid_api_key: str = Field(default="", description="SendGrid API key")
-    default_model: str = Field(default="gpt-4o", description="Default OpenAI model")
 
-    # Email Configuration
-    email_from_address: str = Field(
-        default="support@goodclass.ai", description="Email sender address"
-    )
-    email_subject_template: str = Field(
-        default="Daily News Digest - {date}", description="Email subject template"
-    )
+class AISettings(BaseModel):
+    """AI service settings."""
 
-    # Default user's interests and preferences
-    default_user_interests: str = Field(
-        default="""
-Topics of interest (in order of priority):
-1. AI news, especially in education and GPT-4o image model updates
-2. Important technological innovations 
-3. News that would help a software engineer and product manager be more productive
-4. Major scandals or security issues in tech
-
-Please ignore news about investments, business funding, or other less relevant topics.
-""",
-        description="Default user interests for customizing news selection",
-    )
-
-    # OpenAI Prompts
+    api_key: str = Field(default="", description="OpenAI API key")
+    model: str = Field(default="gpt-4o", description="Default OpenAI model")
     system_message: str = Field(
-        default="""
-You are a helpful AI assistant.
-""",
+        default="You are a helpful AI assistant.",
         description="System message for OpenAI API",
     )
-
     article_selection_template: str = Field(
         default="""
 Below is a list of news articles with their titles, descriptions, and sources.
@@ -78,7 +54,6 @@ Here are the articles:
 """,
         description="Template for article selection prompt",
     )
-
     email_summary_template: str = Field(
         default="""
 - Summarize the following articles: {articles}.
@@ -93,27 +68,55 @@ Here are the articles:
         description="Template for email summary prompt",
     )
 
+    @validator("api_key")
+    def validate_api_key(cls, v: str) -> str:
+        """Validate the API key."""
+        if not v and os.environ.get("OPENAI_API_KEY"):
+            return os.environ.get("OPENAI_API_KEY", "")
+        return v
+
+
+class NewsSettings(BaseModel):
+    """News fetching settings."""
+
+    categories: list[str] = Field(
+        default=["latest", "ai", "technology"],
+        description="Default news categories to fetch",
+    )
+    max_per_category: int = Field(
+        default=50, description="Maximum number of news articles per category"
+    )
+    user_interests: str = Field(
+        default="""
+Topics of interest (in order of priority):
+1. AI news, especially in education and GPT-4o image model updates
+2. Important technological innovations 
+3. News that would help a software engineer and product manager be more productive
+4. Major scandals or security issues in tech
+
+Please ignore news about investments, business funding, or other less relevant topics.
+""",
+        description="Default user interests for customizing news selection",
+    )
+
+
+class Settings(BaseModel):
+    """Application settings model."""
+
+    email: EmailSettings = Field(default_factory=EmailSettings)
+    ai: AISettings = Field(default_factory=AISettings)
+    news: NewsSettings = Field(default_factory=NewsSettings)
+
     class Config:
         """Pydantic configuration."""
 
         env_file = ".env"
         env_file_encoding = "utf-8"
-        env_prefix = ""
+        env_nested_delimiter = "__"
+
+        # Map specific fields to environment variables
+        field_env_mapping = {"ai.api_key": "OPENAI_API_KEY"}
 
 
 # Create settings instance
 settings = Settings()
-
-# Export constants for backward compatibility
-DEFAULT_CATEGORIES = settings.default_categories
-DEFAULT_MAX_NEWS_PER_CATEGORY = settings.default_max_news_per_category
-DEFAULT_EMAIL_RECIPIENTS = settings.default_email_recipients
-OPENAI_API_KEY = settings.openai_api_key
-SENDGRID_API_KEY = settings.sendgrid_api_key
-DEFAULT_MODEL = settings.default_model
-EMAIL_FROM_ADDRESS = settings.email_from_address
-EMAIL_SUBJECT_TEMPLATE = settings.email_subject_template
-DEFAULT_USER_INTERESTS = settings.default_user_interests
-SYSTEM_MESSAGE = settings.system_message
-ARTICLE_SELECTION_TEMPLATE = settings.article_selection_template
-EMAIL_SUMMARY_TEMPLATE = settings.email_summary_template

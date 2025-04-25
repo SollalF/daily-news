@@ -14,12 +14,7 @@ from dotenv import load_dotenv
 import ai_services
 from email_sender import send_news_email
 from news_fetcher import NewsResult, fetch_top_news
-from settings import (
-    DEFAULT_CATEGORIES,
-    DEFAULT_EMAIL_RECIPIENTS,
-    DEFAULT_MAX_NEWS_PER_CATEGORY,
-    DEFAULT_USER_INTERESTS,
-)
+from settings import settings
 
 # Try to load from .env file if it exists, otherwise use system env vars
 _ = load_dotenv()
@@ -46,7 +41,7 @@ def main(args):
             categories = args["categories"]
             print(f"[INFO] Using categories: {categories}")
         else:
-            categories = DEFAULT_CATEGORIES
+            categories = settings.news.categories
             print(f"[INFO] Using default categories: {categories}")
 
         # Get max news per category from args or default to DEFAULT_MAX_NEWS_PER_CATEGORY
@@ -54,7 +49,7 @@ def main(args):
             max_news_per_category = args["max_news_per_category"]
             print(f"[INFO] Using max news per category: {max_news_per_category}")
         else:
-            max_news_per_category = DEFAULT_MAX_NEWS_PER_CATEGORY
+            max_news_per_category = settings.news.max_per_category
             print(
                 f"[INFO] Using default max news per category: {max_news_per_category}"
             )
@@ -64,7 +59,7 @@ def main(args):
             user_interests = args["user_interests"]
             print(f"[INFO] Using user interests: {user_interests}")
         else:
-            user_interests = DEFAULT_USER_INTERESTS
+            user_interests = settings.news.user_interests
             print(f"[INFO] Using default user interests: {user_interests}")
 
         news_result: NewsResult = fetch_top_news(
@@ -124,7 +119,7 @@ if __name__ == "__main__":
             else:
                 raise ValueError("No email addresses provided after --emails argument")
         else:
-            to_emails = DEFAULT_EMAIL_RECIPIENTS
+            to_emails = settings.email.recipients
 
         if "--categories" in sys.argv:
             categories_index = sys.argv.index("--categories") + 1
@@ -133,10 +128,10 @@ if __name__ == "__main__":
             else:
                 raise ValueError("No categories provided after --categories argument")
         else:
-            categories = DEFAULT_CATEGORIES
+            categories = settings.news.categories
 
         # Get user interests (primary customization point)
-        user_interests = DEFAULT_USER_INTERESTS
+        user_interests = settings.news.user_interests
         if "--interests" in sys.argv:
             interests_index = sys.argv.index("--interests") + 1
             if interests_index < len(sys.argv):
@@ -149,7 +144,7 @@ if __name__ == "__main__":
             "to_emails": to_emails,
             "categories": categories,
             "user_interests": user_interests,
-            "max_news_per_category": DEFAULT_MAX_NEWS_PER_CATEGORY,
+            "max_news_per_category": settings.news.max_per_category,
         }
 
         _ = main(args)
