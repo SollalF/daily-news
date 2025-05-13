@@ -4,9 +4,8 @@ Centralizes all interactions with OpenAI and other AI services.
 """
 
 import json
-import logging
 
-import openai  # type: ignore
+from openai import OpenAI  # Updated import
 
 from logger import logger
 from scrapers.base import NewsArticle
@@ -40,9 +39,17 @@ class AIService:
     def __init__(self, settings_obj: Settings = settings):
         """Initialize the AI service with settings."""
         self.settings = settings_obj
-        openai.api_key = settings_obj.ai.api_key
+        # Initialize the OpenAI client with the API key
+        self.client = OpenAI(api_key=settings_obj.ai.api_key)
         self.model = settings_obj.ai.model
         self.system_message = settings_obj.ai.system_message
+
+        logger.info(
+            "AI service initialized:\n  Model: %s\n  System message: %s\n  API key: %s",
+            self.model,
+            self.system_message,
+            settings_obj.ai.api_key,
+        )
 
     def select_articles(
         self,
@@ -141,14 +148,14 @@ class AIService:
         """Call the OpenAI API to select articles."""
         try:
             # Make the API call with proper type handling
-            response = openai.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": self.system_message},
                     {"role": "user", "content": prompt},
                 ],
                 response_format={"type": "json_object"},
-            )  # type: ignore
+            )
 
             content = response.choices[0].message.content
             if content is None:
@@ -169,7 +176,7 @@ class AIService:
     def _call_summarization_api(self, prompt: str) -> str:
         """Call the OpenAI API for article summarization."""
         try:
-            response = openai.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": self.system_message},
