@@ -9,29 +9,22 @@ from openai import OpenAI  # Updated import
 
 from logger import logger
 from scrapers.base import NewsArticle
-from settings import Settings, settings
-
-# Configure logging - use the main application logger instead
-# logger = logging.getLogger(__name__)
-
+from settings import settings, Settings
 
 class AIServiceError(Exception):
     """Base exception for AI service errors."""
 
     pass
 
-
 class InvalidSelectionFormatError(AIServiceError):
     """Exception raised when the selection format is invalid."""
 
     pass
 
-
 class EmptySelectionError(AIServiceError):
     """Exception raised when no articles were selected."""
 
     pass
-
 
 class AIService:
     """Service for AI-related operations."""

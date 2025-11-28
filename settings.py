@@ -3,21 +3,20 @@ Central configuration settings for the daily news application.
 Contains all configurable parameters, prompts, and default values.
 """
 
-import os
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Get the directory where this settings.py file is located
 SETTINGS_DIR = Path(__file__).parent.resolve()
 ENV_FILE_PATH = SETTINGS_DIR / ".env"
 
-
 class EmailSettings(BaseModel):
     """Email-related settings."""
 
+    api_key: str = Field(..., description="SendGrid API key")
     from_address: EmailStr = Field(
         default="support@goodclass.ai", description="Email sender address"
     )
@@ -32,7 +31,7 @@ class EmailSettings(BaseModel):
 class AISettings(BaseModel):
     """AI service settings."""
 
-    api_key: str = Field(default="", description="OpenAI API key")
+    api_key: str = Field(..., description="OpenAI API key")
     model: str = Field(default="gpt-4o", description="Default OpenAI model")
     system_message: str = Field(
         default="You are a helpful AI assistant.",
@@ -74,14 +73,6 @@ Here are the articles:
 """,
         description="Template for email summary prompt",
     )
-
-    @field_validator("api_key")
-    @classmethod
-    def validate_api_key(cls, v: str) -> str:
-        """Validate the API key."""
-        if not v and os.environ.get("OPENAI_API_KEY"):
-            return os.environ.get("OPENAI_API_KEY", "")
-        return v
 
 
 class NewsSettings(BaseModel):
@@ -135,8 +126,6 @@ class Settings(BaseSettings):
     """Application settings model."""
 
     # Environment variables
-    SENDGRID_API_KEY: str = Field(..., description="SendGrid API key")
-    OPENAI_API_KEY: str = Field(..., description="OpenAI API key")
 
     email: EmailSettings = Field(default_factory=EmailSettings)
     ai: AISettings = Field(default_factory=AISettings)
@@ -146,19 +135,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE_PATH),
         env_file_encoding="utf-8",
-        env_nested_delimiter="__",
-        # Map specific fields to environment variables
+        env_nested_delimiter=":",
         env_prefix="",
         extra="ignore",
     )
 
-    @model_validator(mode="after")
-    def map_openai_api_key(self):
-        """Map OPENAI_API_KEY to ai.api_key if not already set."""
-        if not self.ai.api_key and self.OPENAI_API_KEY:
-            self.ai.api_key = self.OPENAI_API_KEY
-        return self
-
-
-# Create settings instance
 settings = Settings()

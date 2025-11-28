@@ -23,6 +23,7 @@ _ = load_dotenv()
 # Initialize the logger
 setup_logger()
 
+logger.info("API Keys: %s", settings.email.api_key, settings.ai.api_key)
 
 def main(args):
     """
