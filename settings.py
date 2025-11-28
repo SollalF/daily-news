@@ -4,9 +4,15 @@ Contains all configurable parameters, prompts, and default values.
 """
 
 import os
+from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Get the directory where this settings.py file is located
+SETTINGS_DIR = Path(__file__).parent.resolve()
+ENV_FILE_PATH = SETTINGS_DIR / ".env"
 
 
 class EmailSettings(BaseModel):
@@ -69,7 +75,8 @@ Here are the articles:
         description="Template for email summary prompt",
     )
 
-    @validator("api_key")
+    @field_validator("api_key")
+    @classmethod
     def validate_api_key(cls, v: str) -> str:
         """Validate the API key."""
         if not v and os.environ.get("OPENAI_API_KEY"):
@@ -124,23 +131,33 @@ class LoggingSettings(BaseModel):
     )
 
 
-class Settings(BaseModel):
+class Settings(BaseSettings):
     """Application settings model."""
+
+    # Environment variables
+    SENDGRID_API_KEY: str = Field(..., description="SendGrid API key")
+    OPENAI_API_KEY: str = Field(..., description="OpenAI API key")
 
     email: EmailSettings = Field(default_factory=EmailSettings)
     ai: AISettings = Field(default_factory=AISettings)
     news: NewsSettings = Field(default_factory=NewsSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
-    class Config:
-        """Pydantic configuration."""
-
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        env_nested_delimiter = "__"
-
+    model_config = SettingsConfigDict(
+        env_file=str(ENV_FILE_PATH),
+        env_file_encoding="utf-8",
+        env_nested_delimiter="__",
         # Map specific fields to environment variables
-        field_env_mapping = {"ai.api_key": "OPENAI_API_KEY"}
+        env_prefix="",
+        extra="ignore",
+    )
+
+    @model_validator(mode="after")
+    def map_openai_api_key(self):
+        """Map OPENAI_API_KEY to ai.api_key if not already set."""
+        if not self.ai.api_key and self.OPENAI_API_KEY:
+            self.ai.api_key = self.OPENAI_API_KEY
+        return self
 
 
 # Create settings instance
