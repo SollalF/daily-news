@@ -3,7 +3,7 @@ Base interface for news scrapers.
 """
 
 from abc import ABC, abstractmethod
-from typing import TypedDict
+from typing import Any, TypedDict
 from urllib.parse import urljoin
 
 import requests
@@ -23,6 +23,12 @@ class NewsArticle(TypedDict):
     image_url: str | None
     category: str | None
     content: str | None
+    source_unique_id: str | None
+    sub_category: str | None
+    fetched_date: str | None
+    authors: str | None
+    tags: str | None
+    metadata: dict[str, Any] | None
 
 
 class NewsScraper(ABC):
@@ -89,7 +95,7 @@ class NewsScraper(ABC):
         return articles
 
     @abstractmethod
-    def fetch_article_by_url(self, url: str) -> NewsArticle:
+    def fetch_article_by_url(self, url: str) -> NewsArticle | None:
         """
         Fetch a single news article from the source by its URL.
 
@@ -97,7 +103,7 @@ class NewsScraper(ABC):
             url: The URL of the news article to fetch.
 
         Returns:
-            A NewsArticle object representing the article at the given URL.
+            A NewsArticle object representing the article at the given URL or None if not found.
         """
 
     def get_category_url(self, category: str) -> str:
@@ -116,22 +122,14 @@ class NewsScraper(ABC):
         category_path = self.category_urls[category]
         return urljoin(self.base_url, category_path)
 
-    def get_available_categories(self) -> list[str]:
+    def get_available_categories(self) -> dict[str, str]:
         """
         Get the list of categories available from this source.
 
         Returns:
             List of category strings
         """
-        return list(self.category_urls.keys())
-
-    @abstractmethod
-    def _extract_article_from_list_item(
-        self, element: Tag, category: str
-    ) -> NewsArticle | None:
-        """
-        Extract an article from a list item element.
-        """
+        return self.category_urls
 
     def fetch_html_content(self, url: str) -> BeautifulSoup | None:
         """
@@ -171,3 +169,17 @@ class NewsScraper(ABC):
         """
         Select article elements from the HTML.
         """
+
+    @abstractmethod
+    def _extract_article_from_list_item(
+        self, element: Tag, category: str
+    ) -> NewsArticle | None:
+        """
+        Extract an article from a list item element.
+        This method is called by the default `fetch_articles` implementation.
+        It should parse an individual HTML element (e.g., a <div> or <li>)
+        representing an article in a list and return a NewsArticle object.
+        If the element cannot be parsed or doesn't represent a valid article,
+        it should return None.
+        """
+        pass

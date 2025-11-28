@@ -5,7 +5,10 @@ Provides a unified interface for fetching news from multiple sources.
 
 import logging
 
-from . import base, cnn, techcrunch
+from .base import NewsArticle, NewsScraper
+from .cnn import CNNScraper
+from .scmp_scraper import SCMPScraper
+from .techcrunch import TechCrunchScraper
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -17,9 +20,10 @@ class ScraperManager:
     def __init__(self):
         """Initialize the scraper manager with all available scrapers."""
         # Dictionary to hold all scraper instances, keyed by source name
-        self.scrapers: dict[str, base.NewsScraper] = {
-            "techcrunch": techcrunch.TechCrunchScraper(),
-            "cnn": cnn.CNNScraper(),
+        self.scrapers: dict[str, NewsScraper] = {
+            "techcrunch": TechCrunchScraper(),
+            "cnn": CNNScraper(),
+            "scmp": SCMPScraper(),
         }
 
     def get_available_sources(self) -> list[str]:
@@ -54,7 +58,7 @@ class ScraperManager:
         sources: list[str] | None = None,
         categories: list[str] | None = None,
         max_articles_per_source: int = 10,
-    ) -> list[base.NewsArticle]:
+    ) -> list[NewsArticle]:
         """
         Fetch only headlines and basic info (no full content) from sources.
 
@@ -75,7 +79,7 @@ class ScraperManager:
             categories = ["default"]
 
         # Initialize results list
-        results: list[base.NewsArticle] = []
+        results: list[NewsArticle] = []
         # Track seen URLs to avoid duplicates
         seen_urls: set[str] = set()
 
@@ -105,9 +109,7 @@ class ScraperManager:
 
         return results
 
-    def fetch_detailed_content(
-        self, articles: list[base.NewsArticle]
-    ) -> list[base.NewsArticle]:
+    def fetch_detailed_content(self, articles: list[NewsArticle]) -> list[NewsArticle]:
         """
         Fetch detailed content for articles that already have basic info.
 
@@ -119,10 +121,10 @@ class ScraperManager:
         """
         logger.info(f"Fetching detailed content for {len(articles)} articles")
         # Initialize results list
-        detailed_articles: list[base.NewsArticle] = []
+        detailed_articles: list[NewsArticle] = []
 
         # Group articles by source for more efficient processing
-        articles_by_source: dict[str, list[base.NewsArticle]] = {}
+        articles_by_source: dict[str, list[NewsArticle]] = {}
         for article in articles:
             source = article.get("source", "")
             if source not in articles_by_source:
@@ -150,9 +152,7 @@ class ScraperManager:
             for article in source_articles:
                 try:
                     # Use the scraper to fetch full article details
-                    detailed: base.NewsArticle = scraper.fetch_article_by_url(
-                        article["url"]
-                    )
+                    detailed: NewsArticle = scraper.fetch_article_by_url(article["url"])
                     detailed_articles.append(detailed)
                 except Exception as e:
                     logger.error(
@@ -168,7 +168,7 @@ class ScraperManager:
         sources: list[str] | None = None,
         categories: list[str] | None = None,
         max_articles_per_source: int = 5,
-    ) -> list[base.NewsArticle]:
+    ) -> list[NewsArticle]:
         """
         Fetch news from multiple sources and categories with full content.
         This is a convenience method that calls fetch_headlines followed by fetch_detailed_content.
@@ -188,8 +188,8 @@ class ScraperManager:
         return self.fetch_detailed_content(headlines)
 
     def organize_by_category(
-        self, news_data: list[base.NewsArticle]
-    ) -> dict[str, list[base.NewsArticle]]:
+        self, news_data: list[NewsArticle]
+    ) -> dict[str, list[NewsArticle]]:
         """
         Organize news data by category.
 
@@ -200,7 +200,7 @@ class ScraperManager:
             Dictionary of news organized by category
         """
         # Initialize dictionary to hold articles organized by category
-        by_category: dict[str, list[base.NewsArticle]] = {}
+        by_category: dict[str, list[NewsArticle]] = {}
         # Track seen URLs to avoid duplicates within categories
         seen_urls: set[str] = set()
 

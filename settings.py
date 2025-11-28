@@ -62,6 +62,7 @@ Here are the articles:
 - Then prioritize the articles based on my interests. 
 - Do not include a ```html tag in the output.
 - Always include the link to the original article.
+- If there is a picture in the article, include it.
 
 {user_interests}
 """,

@@ -98,6 +98,36 @@ To integrate a new news source (e.g., "NewSite"):
 
 The `ScraperManager` and main application logic will then automatically support the new source.
 
+### SCMP API Key
+
+The `SCMPScraper` uses an API key to fetch articles from the South China Morning Post's content API. This key is currently hardcoded in `scrapers/scmp_scraper.py` within the `SCMP_API_HEADERS` dictionary.
+
+**Purpose of the API Key:**
+
+This API key is likely used by SCMP's own website frontend to authenticate its requests to their backend API. It's a common practice for websites to use such keys to:
+
+- Identify legitimate requests originating from their own applications.
+- Apply general rate limiting or quotas.
+- Provide a basic layer of access control to their internal APIs.
+
+The key is not unique to your session but is rather a general key embedded in SCMP's frontend code.
+
+**How to Find/Update the API Key if it Changes:**
+
+If the `SCMPScraper` starts failing with authentication errors (e.g., HTTP 401 or 403), the API key might have been changed by SCMP. To find the new key:
+
+1.  Open the SCMP website (e.g., `https://www.scmp.com`) in your web browser.
+2.  Open your browser's Developer Tools (usually by pressing F12 or right-clicking on the page and selecting "Inspect" or "Inspect Element").
+3.  Navigate to the "Network" tab within the Developer Tools.
+4.  Filter the requests if possible (e.g., by "Fetch/XHR" or by looking for requests to `apigw.scmp.com`).
+5.  As you browse the SCMP site (e.g., by loading the homepage or a category page), new network requests will appear in the list.
+6.  Look for requests made to `apigw.scmp.com` (specifically those related to `content-delivery/v2` or with `operationName=aroundHomeQuery`).
+7.  Click on one of these requests to view its details.
+8.  Examine the "Headers" section (specifically "Request Headers"). Look for an `apikey` header or a similar authorization-related header.
+9.  If the value of this key is different from the one in `scrapers/scmp_scraper.py`, update the `SCMP_API_HEADERS` dictionary in the script with the new key.
+
+While this key might be stable for extended periods, it's good practice to know how to find it if the scraper stops working due to authentication issues. Automating the fetching of this key is possible but can be brittle and is likely not necessary unless the key changes very frequently.
+
 ## Future Improvements
 
 This section outlines potential enhancements:
