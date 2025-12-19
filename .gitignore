@@ -4,4 +4,5 @@ __pycache__
 .venv
 .nimbella
 .deployed
-logs/
+logs/*
+logs/daily-news.log

@@ -2,16 +2,11 @@
 Tests for the news fetcher module.
 """
 
-import os
-
 import pytest
-from dotenv import load_dotenv
 
 import news_fetcher
 from scrapers.base import NewsArticle
-
-# Load environment variables for API keys
-_ = load_dotenv()
+from settings import settings
 
 
 def test_fetch_initial_article_list():
@@ -43,7 +38,7 @@ def test_fetch_initial_article_list():
 
 
 @pytest.mark.skipif(
-    not os.getenv("OPENAI_API_KEY"),
+    not settings.ai.api_key,
     reason="OpenAI API key not found in environment variables",
 )
 def test_fetch_article_details(sample_news_articles):
@@ -88,7 +83,7 @@ def test_fetch_article_details(sample_news_articles):
 
 
 @pytest.mark.skipif(
-    not os.getenv("OPENAI_API_KEY"),
+    not settings.ai.api_key,
     reason="OpenAI API key not found in environment variables",
 )
 def test_fetch_top_news():

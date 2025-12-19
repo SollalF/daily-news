@@ -39,11 +39,6 @@ def send_news_email(
     Returns:
         EmailResponse with status code and result message
     """
-    key = os.getenv("SENDGRID_API_KEY", "")
-    if not key:
-        logger.error("SendGrid API key not found in environment variables")
-        raise ValueError("SendGrid API key not found in environment variables")
-
     # Create message
     hk_tz = pytz.timezone("Asia/Hong_Kong")
     current_date = datetime.now(hk_tz).strftime("%Y-%m-%d")
@@ -51,7 +46,7 @@ def send_news_email(
     # Create HTML content for email
     html_content = create_email_html(news_data, current_date, news_summary)
 
-    sg: SendGridAPIClient = SendGridAPIClient(key)
+    sg: SendGridAPIClient = SendGridAPIClient(settings.email.api_key)
     message: Mail = Mail(
         from_email=settings.email.from_address,
         to_emails=to_emails,

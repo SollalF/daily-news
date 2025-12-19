@@ -194,7 +194,7 @@ def fetch_article_details(
 #         Dictionary mapping categories to article lists
 #     """
 #     # Get API key from environment
-#     api_key = os.getenv("NEWS_API_KEY")
+#     api_key = settings.news.api_key
 #     if not api_key:
 #         print("NewsAPI key not found, skipping API fetch")
 #         return {}

@@ -9,7 +9,6 @@ import sys
 import traceback
 from http import HTTPStatus
 
-from dotenv import load_dotenv
 
 import ai_services
 from email_sender import send_news_email
@@ -17,13 +16,11 @@ from logger import logger, setup_logger
 from news_fetcher import NewsResult, fetch_top_news
 from settings import settings
 
-# Try to load from .env file if it exists, otherwise use system env vars
-_ = load_dotenv()
 
 # Initialize the logger
 setup_logger()
 
-logger.info("API Keys: %s", settings.email.api_key, settings.ai.api_key)
+logger.info("API Keys: %s, %s", settings.email.api_key, settings.ai.api_key)
 
 def main(args):
     """

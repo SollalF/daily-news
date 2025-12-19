@@ -2,19 +2,15 @@
 Tests for the email sender module.
 """
 
-import os
-
 import pytest
-from dotenv import load_dotenv
 
 import email_sender
-
-# Load environment variables for API keys
-_ = load_dotenv()
+from settings import settings
+from settings import settings
 
 # Skip tests if no SendGrid API key is available
 pytestmark = pytest.mark.skipif(
-    not os.getenv("SENDGRID_API_KEY"),
+    not settings.email.api_key,
     reason="SendGrid API key not found in environment variables",
 )
 
@@ -49,20 +45,11 @@ def test_send_news_email(sample_news_articles):
     """Test the send_news_email function with real API call."""
     print("\n[DEBUG] Starting test_send_news_email...")
 
-    # Only run if we have API credentials and a real recipient email
-    if not os.getenv("SENDGRID_API_KEY"):
-        print("[DEBUG] Skipping test: No SendGrid API key available")
-        pytest.skip("No SendGrid API key available")
-
     # Replace this with a real test email address
     # For safety, default to not sending if no test email is specified
-    test_email = os.getenv("TEST_EMAIL")
-    if not test_email:
-        print("[DEBUG] Skipping test: No test email address available")
-        pytest.skip("No test email address available")
+    to_emails = settings.email.recipients
 
     # Set up test data
-    to_emails = [test_email]
     news_summary = "This is a test summary for integration testing."
     print(
         f"[DEBUG] Test data: recipient={test_email}, summary length={len(news_summary)}"
