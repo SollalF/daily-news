@@ -9,7 +9,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup, Tag
 from bs4.element import PageElement
 
-# For Python 3.11, we need typing_extensions for @override
+# For Python 3.11, need typing_extensions for @override
 from typing_extensions import override
 
 from logger import logger
