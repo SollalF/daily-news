@@ -1,3 +1,13 @@
+---
+related_code:
+  - __main__.py
+  - news_fetcher.py
+  - ai_services.py
+  - email_sender.py
+  - settings.py
+  - scrapers/
+---
+
 # Daily News Digest
 
 A system for automatically collecting, summarizing, and emailing news articles.
