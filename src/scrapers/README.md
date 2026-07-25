@@ -1,8 +1,8 @@
 ---
 related_code:
-  - scrapers/base.py
-  - scrapers/manager.py
-  - scrapers/__init__.py
+  - src/scrapers/base.py
+  - src/scrapers/manager.py
+  - src/scrapers/__init__.py
 ---
 
 # scrapers package
@@ -22,8 +22,8 @@ Nested package docs for the scraper subsystem (discovered via `**/*.md`).
 
 ## Adding a source
 
-1. Add `scrapers/<source>_scraper.py` implementing `NewsScraper`.
-2. Import the module from `scrapers/__init__.py` if needed for package exports.
+1. Add `src/scrapers/<source>_scraper.py` implementing `NewsScraper`.
+2. Import the module from `src/scrapers/__init__.py` if needed for package exports.
 3. Register an instance in `ScraperManager.scrapers` with a stable source key.
 
 ## SCMP API key

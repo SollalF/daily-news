@@ -1,11 +1,11 @@
 ---
 related_code:
-  - __main__.py
-  - news_fetcher.py
-  - ai_services.py
-  - email_sender.py
-  - settings.py
-  - scrapers/
+  - src/daily_news.py
+  - src/news_fetcher.py
+  - src/ai_services.py
+  - src/email_sender.py
+  - src/settings.py
+  - src/scrapers/
 ---
 
 # Daily News Digest
@@ -54,13 +54,13 @@ This system fetches news articles from multiple sources, uses AI to summarize th
 ### Basic Run
 
 ```bash
-python -m __main__ --test
+PYTHONPATH=src python -m daily_news --test
 ```
 
 ### Custom Run
 
 ```bash
-python -m __main__ --test --categories ai,technology --emails someone@example.com --interests "AI in education, GPT-4o updates"
+PYTHONPATH=src python -m daily_news --test --categories ai,technology --emails someone@example.com --interests "AI in education, GPT-4o updates"
 ```
 
 ## Configuration
@@ -74,7 +74,7 @@ Key settings are configured via environment variables:
 
 The news scraping functionality is modular and easily extensible, utilizing a base scraper class and a scraper manager.
 
-- **`scrapers/base.py`**:
+- **`src/scrapers/base.py`**:
 
   - Defines `NewsArticle`: A `TypedDict` standardizing the structure for fetched news articles (title, URL, description, content, etc.).
   - Defines `NewsScraper(ABC)`: An abstract base class for individual news source scrapers, providing a common interface and shared functionalities (e.g., HTML fetching via `requests`, parsing with `BeautifulSoup`).
@@ -84,12 +84,12 @@ The news scraping functionality is modular and easily extensible, utilizing a ba
     - `fetch_article_by_url()`: Fetches a single, complete article by its URL.
     - `_extract_article_info()`: Parses full content and details from an individual article page for Phase 3.
 
-- **`scrapers/<source_name>.py`** (e.g., `scrapers/techcrunch.py`, `scrapers/cnn.py`):
+- **`src/scrapers/<source_name>.py`** (e.g., `src/scrapers/techcrunch.py`, `src/scrapers/cnn.py`):
 
   - Each file implements a scraper class inheriting from `NewsScraper`.
   - Contains unique selectors and parsing logic tailored to the specific news website's HTML structure.
 
-- **`scrapers/manager.py`**:
+- **`src/scrapers/manager.py`**:
   - Defines `ScraperManager`: A central registry and coordinator for all scrapers.
   - Initializes and stores instances of concrete scrapers (e.g., `TechCrunchScraper()`, `CNNScraper()`) in a dictionary, keyed by a source identifier (e.g., "techcrunch").
   - Provides methods like `fetch_headlines()` (Phase 1) and `fetch_detailed_content()` (Phase 3), delegating work to the appropriate scraper.
@@ -98,11 +98,11 @@ The news scraping functionality is modular and easily extensible, utilizing a ba
 
 To integrate a new news source (e.g., "NewSite"):
 
-1.  **Create Scraper Module**: Add `scrapers/newsite_scraper.py`.
+1.  **Create Scraper Module**: Add `src/scrapers/newsite_scraper.py`.
 2.  **Implement Scraper Class**: In `newsite_scraper.py`, define `NewSiteScraper(NewsScraper)`.
     - Implement all `NewsScraper` abstract methods with logic specific to NewSite's website structure.
-3.  **Register in `__init__.py`**: In `scrapers/__init__.py`, add `from . import newsite_scraper` to make the module accessible.
-4.  **Register in Manager**: In `scrapers/manager.py`:
+3.  **Register in `__init__.py`**: In `src/scrapers/__init__.py`, add `from . import newsite_scraper` to make the module accessible.
+4.  **Register in Manager**: In `src/scrapers/manager.py`:
     - Import the new class: `from .newsite_scraper import NewSiteScraper`.
     - Add an instance to `self.scrapers` in `ScraperManager.__init__`: `"newsite": NewSiteScraper()`. (Use a consistent key for the source).
 
@@ -110,7 +110,7 @@ The `ScraperManager` and main application logic will then automatically support 
 
 ### SCMP API Key
 
-The `SCMPScraper` uses an API key to fetch articles from the South China Morning Post's content API. This key is currently hardcoded in `scrapers/scmp_scraper.py` within the `SCMP_API_HEADERS` dictionary.
+The `SCMPScraper` uses an API key to fetch articles from the South China Morning Post's content API. This key is currently hardcoded in `src/scrapers/scmp_scraper.py` within the `SCMP_API_HEADERS` dictionary.
 
 **Purpose of the API Key:**
 
@@ -134,7 +134,7 @@ If the `SCMPScraper` starts failing with authentication errors (e.g., HTTP 401 o
 6.  Look for requests made to `apigw.scmp.com` (specifically those related to `content-delivery/v2` or with `operationName=aroundHomeQuery`).
 7.  Click on one of these requests to view its details.
 8.  Examine the "Headers" section (specifically "Request Headers"). Look for an `apikey` header or a similar authorization-related header.
-9.  If the value of this key is different from the one in `scrapers/scmp_scraper.py`, update the `SCMP_API_HEADERS` dictionary in the script with the new key.
+9.  If the value of this key is different from the one in `src/scrapers/scmp_scraper.py`, update the `SCMP_API_HEADERS` dictionary in the script with the new key.
 
 While this key might be stable for extended periods, it's good practice to know how to find it if the scraper stops working due to authentication issues. Automating the fetching of this key is possible but can be brittle and is likely not necessary unless the key changes very frequently.
 

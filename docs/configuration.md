@@ -1,12 +1,12 @@
 ---
 related_code:
-  - settings.py
+  - src/settings.py
 ---
 
 # Configuration
 
-All runtime knobs live in `settings.py` (Pydantic settings). Values come from
-environment variables and an optional `.env` next to that module.
+All runtime knobs live in `src/settings.py` (Pydantic settings). Values come from
+environment variables and an optional `.env` at the repo root.
 
 ## Required secrets
 
@@ -22,4 +22,4 @@ environment variables and an optional `.env` next to that module.
 - **News** — default categories, max articles per category, user interests
 
 Override categories, interests, and recipients on the CLI when running
-`python -m __main__` instead of editing defaults.
+`PYTHONPATH=src python -m daily_news` instead of editing defaults.

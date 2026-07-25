@@ -1,9 +1,9 @@
 ---
 related_code:
-  - __main__.py
-  - news_fetcher.py
-  - ai_services.py
-  - email_sender.py
+  - src/daily_news.py
+  - src/news_fetcher.py
+  - src/ai_services.py
+  - src/email_sender.py
 ---
 
 # Architecture
@@ -23,10 +23,10 @@ Daily News Digest runs a five-phase pipeline from CLI / module entry to email.
 
 ## Entry
 
-`__main__.py` parses CLI flags (`--test`, `--categories`, `--emails`,
+`src/daily_news.py` parses CLI flags (`--test`, `--categories`, `--emails`,
 `--interests`), loads `settings`, then calls `main()`.
 
 ```bash
-python -m __main__ --test
-python -m __main__ --test --categories ai,technology --emails someone@example.com
+PYTHONPATH=src python -m daily_news --test
+PYTHONPATH=src python -m daily_news --test --categories ai,technology --emails someone@example.com
 ```

@@ -9,9 +9,9 @@ from typing import Literal
 from pydantic import BaseModel, EmailStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Get the directory where this settings.py file is located
-SETTINGS_DIR = Path(__file__).parent.resolve()
-ENV_FILE_PATH = SETTINGS_DIR / ".env"
+# Repo root (parent of src/), so .env stays at the project root
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ENV_FILE_PATH = PROJECT_ROOT / ".env"
 
 class EmailSettings(BaseModel):
     """Email-related settings."""

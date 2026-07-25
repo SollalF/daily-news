@@ -1,11 +1,11 @@
 ---
 related_code:
   - tests/
-  - scrapers/
-  - news_fetcher.py
-  - ai_services.py
-  - email_sender.py
-  - __main__.py
+  - src/scrapers/
+  - src/news_fetcher.py
+  - src/ai_services.py
+  - src/email_sender.py
+  - src/daily_news.py
 ---
 
 # tests

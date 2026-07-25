@@ -9,10 +9,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Add the parent directory to the Python path to import the module
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Add src/ to the Python path (src layout)
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+)
 
-# Import the main function from the daily_news module
 from daily_news import main
 
 
