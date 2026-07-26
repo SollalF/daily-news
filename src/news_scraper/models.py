@@ -1,55 +1,38 @@
-"""Domain models for articles, parsers, and validation results."""
+"""News-specific models and re-exports of engine types."""
 
 from __future__ import annotations
 
-from enum import StrEnum
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from self_healing_scraper.models import (
+    FieldExtractor,
+    GeneratedParser,
+    PageContent,
+    PageKind,
+    ParserDefinition,
+    ParserStatus,
+    ValidationCheck,
+    ValidationFailure,
+    ValidationResult,
+    ValidationSuite,
+)
 from typing_extensions import TypedDict
 
-
-class PageKind(StrEnum):
-    LISTING = "listing"
-    ARTICLE = "article"
-
-
-class ParserStatus(StrEnum):
-    ACTIVE = "active"
-    DRAFT = "draft"
-    FAILED = "failed"
-
-
-class FieldExtractor(BaseModel):
-    """How to pull one field from a DOM node or page."""
-
-    selector: str
-    attr: str = "text"
-    many: bool = False
-
-
-class ParserDefinition(BaseModel):
-    """Declarative extraction config stored in the database."""
-
-    js_enabled: bool = True
-    wait_for: str | None = None
-    item_selector: str | None = None
-    fields: dict[str, FieldExtractor] = Field(default_factory=dict)
-    source_name: str | None = None
-
-
-class ValidationCheck(BaseModel):
-    type: str
-    value: Any | None = None
-    field: str | None = None
-    fields: list[str] | None = None
-    values: list[str] | None = None
-    pattern: str | None = None
-    message: str | None = None
-
-
-class ValidationSuite(BaseModel):
-    checks: list[ValidationCheck] = Field(default_factory=list)
+__all__ = [
+    "FieldExtractor",
+    "GeneratedParser",
+    "NewsArticle",
+    "PageContent",
+    "PageKind",
+    "ParserDefinition",
+    "ParserStatus",
+    "ScrapeResult",
+    "ValidationCheck",
+    "ValidationFailure",
+    "ValidationResult",
+    "ValidationSuite",
+]
 
 
 class NewsArticle(TypedDict, total=False):
@@ -64,33 +47,6 @@ class NewsArticle(TypedDict, total=False):
     authors: str | None
     tags: str | None
     metadata: dict[str, Any] | None
-
-
-class ValidationFailure(BaseModel):
-    check_type: str
-    message: str
-    details: dict[str, Any] = Field(default_factory=dict)
-
-
-class ValidationResult(BaseModel):
-    passed: bool
-    failures: list[ValidationFailure] = Field(default_factory=list)
-
-
-class PageContent(BaseModel):
-    url: str
-    html: str
-    markdown: str | None = None
-    success: bool = True
-    error_message: str | None = None
-
-
-class GeneratedParser(BaseModel):
-    name: str
-    url_pattern: str
-    page_kind: Literal["listing", "article"]
-    definition: ParserDefinition
-    validations: ValidationSuite
 
 
 class ScrapeResult(BaseModel):

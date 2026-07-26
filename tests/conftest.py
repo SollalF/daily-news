@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import pytest
-
-from news_scraper.asyncio_compat import configure_event_loop_policy
-from news_scraper.models import (
+from self_healing_scraper.asyncio_compat import configure_event_loop_policy
+from self_healing_scraper.models import (
     FieldExtractor,
-    NewsArticle,
     PageContent,
     ParserDefinition,
     ValidationCheck,
     ValidationSuite,
 )
+
+from news_scraper.models import NewsArticle
 
 configure_event_loop_policy()
 

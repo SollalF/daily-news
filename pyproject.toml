@@ -1,12 +1,10 @@
 [project]
 name = "news-scraper"
 version = "0.1.0"
-description = "Self-healing, database-backed news scraper library"
+description = "Self-healing, database-backed news scraper built on self-healing-scraper"
 requires-python = ">=3.12"
 dependencies = [
-    "beautifulsoup4>=4.15.0",
-    "crawl4ai>=0.7.0",
-    "openai>=2.48.0",
+    "self-healing-scraper",
     "pydantic>=2.0.0,<3",
     "pydantic-settings>=2.14.2",
     "python-dotenv>=1.0.0",
@@ -33,6 +31,9 @@ dev = [
 # Kept false so `uv sync` works in environments that block editable builds.
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+self-healing-scraper = { git = "https://github.com/SollalF/self-healing-scraper" }
 
 [tool.ruff]
 target-version = "py312"

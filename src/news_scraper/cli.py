@@ -6,8 +6,8 @@ import json
 import logging
 
 import typer
+from self_healing_scraper.asyncio_compat import run
 
-from news_scraper.asyncio_compat import run
 from news_scraper.scrape import scrape_news_url
 from news_scraper.settings import get_settings
 

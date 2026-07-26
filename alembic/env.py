@@ -8,11 +8,11 @@ from pathlib import Path
 
 from alembic import context
 from dotenv import load_dotenv
+from self_healing_scraper.asyncio_compat import configure_event_loop_policy, run
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from news_scraper.asyncio_compat import configure_event_loop_policy, run
 from news_scraper.db.models import Base
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")

@@ -1,26 +1,28 @@
-"""Persistence helpers for parsers and scrape runs."""
+"""Persistence helpers for parsers and scrape runs (ParserStore for the engine)."""
 
 from __future__ import annotations
 
-import re
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from news_scraper.db.models import ParserRecord, ScrapeRunRecord
-from news_scraper.models import (
+from self_healing_scraper.models import (
     GeneratedParser,
-    NewsArticle,
     ParserDefinition,
     ParserStatus,
     ValidationSuite,
 )
+from self_healing_scraper.store import ParserRecordLike, best_parser_match
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from news_scraper.db.models import ParserRecord, ScrapeRunRecord
+from news_scraper.models import NewsArticle
 
 
 class ParserRepository:
+    """SQLAlchemy-backed ParserStore used by scrape_news_url."""
+
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
@@ -37,39 +39,29 @@ class ParserRepository:
         """Return the most specific active (or draft) parser matching the URL."""
         # Prefer active parsers; fall back to newest draft for in-progress creation.
         active = await self.list_candidates([ParserStatus.ACTIVE.value])
-        match = self._best_match(url, active)
+        match = best_parser_match(url, active)
         if match:
             return match
         drafts = await self.list_candidates([ParserStatus.DRAFT.value])
-        return self._best_match(url, drafts)
+        return best_parser_match(url, drafts)
 
     @staticmethod
-    def definition_of(record: ParserRecord) -> ParserDefinition:
+    def definition_of(record: ParserRecordLike) -> ParserDefinition:
         """Rehydrate a stored JSON definition into a domain model."""
-        return ParserDefinition.model_validate(record.definition)
+        orm = cast(ParserRecord, record)
+        return ParserDefinition.model_validate(orm.definition)
 
     @staticmethod
-    def validations_of(record: ParserRecord) -> ValidationSuite:
+    def validations_of(record: ParserRecordLike) -> ValidationSuite:
         """Rehydrate a stored JSON validation suite into a domain model."""
-        return ValidationSuite.model_validate(record.validations)
-
-    @staticmethod
-    def _best_match(url: str, parsers: list[ParserRecord]) -> ParserRecord | None:
-        matches: list[tuple[int, ParserRecord]] = []
-        for parser in parsers:
-            try:
-                compiled = re.compile(parser.url_pattern)
-            except re.error:
-                continue
-            if compiled.search(url):
-                matches.append((len(parser.url_pattern), parser))
-        if not matches:
-            return None
-        matches.sort(key=lambda item: (-item[0], -item[1].version))
-        return matches[0][1]
+        orm = cast(ParserRecord, record)
+        return ValidationSuite.model_validate(orm.validations)
 
     async def create_from_generated(
-        self, generated: GeneratedParser, status: ParserStatus = ParserStatus.DRAFT
+        self,
+        generated: GeneratedParser,
+        *,
+        status: ParserStatus = ParserStatus.DRAFT,
     ) -> ParserRecord:
         record = ParserRecord(
             name=generated.name,
@@ -87,7 +79,7 @@ class ParserRepository:
 
     async def update_parser(
         self,
-        record: ParserRecord,
+        record: ParserRecordLike,
         *,
         name: str | None = None,
         url_pattern: str | None = None,
@@ -99,30 +91,31 @@ class ParserRepository:
         last_error: str | None = None,
         mark_success: bool = False,
     ) -> ParserRecord:
+        orm = cast(ParserRecord, record)
         if name is not None:
-            record.name = name
+            orm.name = name
         if url_pattern is not None:
-            record.url_pattern = url_pattern
+            orm.url_pattern = url_pattern
         if page_kind is not None:
-            record.page_kind = page_kind
+            orm.page_kind = page_kind
         if definition is not None:
-            record.definition = definition.model_dump()
+            orm.definition = definition.model_dump()
         if validations is not None:
-            record.validations = validations.model_dump()
+            orm.validations = validations.model_dump()
         if status is not None:
-            record.status = status.value
+            orm.status = status.value
         if bump_version:
-            record.version += 1
+            orm.version += 1
         if last_error is not None:
-            record.last_error = last_error
+            orm.last_error = last_error
         if mark_success:
-            record.last_success_at = datetime.now(UTC)
-            record.last_error = None
-            record.status = ParserStatus.ACTIVE.value
-        record.updated_at = datetime.now(UTC)
+            orm.last_success_at = datetime.now(UTC)
+            orm.last_error = None
+            orm.status = ParserStatus.ACTIVE.value
+        orm.updated_at = datetime.now(UTC)
         await self.session.commit()
-        await self.session.refresh(record)
-        return record
+        await self.session.refresh(orm)
+        return orm
 
     async def save_run(
         self,
@@ -131,11 +124,12 @@ class ParserRepository:
         parser_id: uuid.UUID | None,
         parser_version: int | None,
         success: bool,
-        articles: list[NewsArticle] | None = None,
+        items: list[dict[str, Any]] | None = None,
         validation_errors: list[dict[str, Any]] | None = None,
         page_sample: str | None = None,
         error_message: str | None = None,
     ) -> ScrapeRunRecord:
+        articles = cast(list[NewsArticle] | None, list(items) if items else None)
         run = ScrapeRunRecord(
             url=url,
             parser_id=parser_id,

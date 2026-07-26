@@ -1,4 +1,4 @@
-"""Prompt templates for parser creation and repair."""
+"""Prompt templates for news parser creation and repair."""
 
 CREATE_SYSTEM = """You are an expert web scraping engineer.
 Given a news page sample, produce a declarative parser and validation suite as JSON.

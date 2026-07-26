@@ -1,13 +1,13 @@
 # news-scraper
 
-Self-healing, database-backed news scraper library. Pass a URL; the library looks up a declarative parser by URL regex, creates one with AI if missing, runs it against a Crawl4AI-rendered page (SSR + SPA), validates the output, and repairs the parser when checks fail.
+Self-healing, database-backed **news** scraper built on [`self-healing-scraper`](https://github.com/SollalF/self-healing-scraper). Pass a URL; the product looks up a declarative parser by URL regex, creates one with AI if missing, runs it against a Crawl4AI-rendered page (SSR + SPA), validates the output with news-aware checks, and repairs the parser when checks fail.
 
 ## Quick start
 
 ```bash
 # 1. Dependencies
 uv sync
-uv run playwright install chromium   # used by Crawl4AI
+uv run playwright install chromium   # used by Crawl4AI via the engine
 # or: uv run crawl4ai-setup
 
 # 2. Postgres (local)
@@ -31,14 +31,23 @@ PYTHONPATH=src uv run python news_scrape.py https://techcrunch.com/latest/
 # or: PYTHONPATH=src uv run python -m news_scraper https://techcrunch.com/latest/
 ```
 
+### Local engine development
+
+To develop against a local checkout of the engine:
+
+```toml
+# in pyproject.toml [tool.uv.sources]
+self-healing-scraper = { path = "../self-healing-scraper", editable = true }
+```
+
+Then `uv sync` again.
+
 ### Tests
 
 ```bash
 PYTHONPATH=src uv run pytest -m "not live"
 PYTHONPATH=src uv run pytest -m live   # Postgres + LLM_API_KEY + network
 ```
-
-
 
 ## Public API
 
@@ -52,14 +61,14 @@ result = await scrape_news_url("https://techcrunch.com/latest/")
 
 ## How it works
 
-1. Normalize URL and fetch HTML via Crawl4AI (Playwright).
+1. Normalize URL and fetch HTML via the engine (Crawl4AI / Playwright).
 2. Find an active parser whose `url_pattern` regex matches (longest match wins).
 3. If none exists, ask the AI for a declarative `definition` + `validations` suite; store in Postgres.
 4. Execute CSS extractors → `NewsArticle` list.
-5. Run runtime validations (format + content).
+5. Run runtime validations (core + news-specific checks).
 6. On failure, pass parser + page sample + errors back to the AI, bump version, retry (default 3).
 
-Parsers are JSON configs (selectors, wait rules, field maps), not executable Python.
+Parsers are JSON configs (selectors, wait rules, field maps), not executable Python. Persistence (Postgres / Alembic) lives in this product; the engine only sees a `ParserStore`.
 
 ## Configuration
 
@@ -78,12 +87,10 @@ Same schema works against Neon, Supabase, RDS, etc. by changing `DATABASE_URL`.
 ## Layout
 
 ```
-src/news_scraper/     # library package
-  scrape.py           # orchestration
-  fetch/              # Crawl4AI wrapper
-  runtime/            # executor + validators
-  agent/              # create / repair
-  db/                 # SQLAlchemy + repository
+src/news_scraper/
+  scrape.py           # thin façade → self-healing-scraper
+  domain/             # news prompts + validators
+  db/                 # SQLAlchemy + ParserRepository (ParserStore)
 alembic/              # migrations
 tests/
 docker-compose.yml    # local Postgres
