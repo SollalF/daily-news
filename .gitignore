@@ -1,8 +1,19 @@
 .env
-__pycache__
+__pycache__/
 .DS_Store
-.venv
+.venv/
 .nimbella
 .deployed
-logs/*
-logs/daily-news.log
+logs/
+
+# uv / tooling
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.ty_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+test_results/

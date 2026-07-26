@@ -1,165 +1,97 @@
----
-related_code:
-  - __main__.py
-  - news_fetcher.py
-  - ai_services.py
-  - email_sender.py
-  - settings.py
-  - scrapers/
----
+# news-scraper
 
-# Daily News Digest
+Self-healing, database-backed **news** scraper built on [`self-healing-scraper`](https://github.com/SollalF/self-healing-scraper). Pass a URL; the product looks up a declarative parser by URL regex, creates one with AI if missing, runs it against a Crawl4AI-rendered page (SSR + SPA), validates the output with news-aware checks, and repairs the parser when checks fail.
 
-A system for automatically collecting, summarizing, and emailing news articles.
-
-## Overview
-
-This system fetches news articles from multiple sources, uses AI to summarize them, and sends the digest via email. It's designed to focus on news most relevant to the user's interests and can be deployed in various environments, including as a serverless function.
-
-## Features
-
-- **Two-Phase News Fetching**: Efficiently collects headlines and descriptions, then uses AI to select articles for full scraping.
-  - _Rationale_: Manages LLM context window limitations and reduces token costs by deferring full content parsing.
-  - _Limitation_: Potential scaling issues with a large number of articles.
-- **AI-Powered Summarization**: Leverages GPT-4o for personalized news digests.
-  - _Benefit_: Provides a main headline for a quick overview.
-  - _Issue_: AI summaries may occasionally contain inaccuracies (hallucinations).
-- **Multiple News Sources**: Scrapes from various platforms, including TechCrunch and CNN.
-- **Category Filtering**: Organizes news based on website categories (e.g., AI, technology).
-  - _Limitation_: Direct mapping can be restrictive for overlapping topics (e.g., AI, technology, apps) categorized differently across sites.
-- **Customizable Prompts**: Allows users to tailor the AI summarization prompt.
-- **Email Delivery**: Sends formatted HTML emails using SendGrid.
-
-## How it Works
-
-1.  **Phase 1: Initial Scraping**:
-    - Fetches headlines, URLs, and short descriptions from news source category or search result pages.
-    - Focuses on readily available information on listing pages.
-    - Defers full article content download to save bandwidth and processing time.
-2.  **Phase 2: AI Selection**:
-    - Employs OpenAI to analyze headlines and descriptions.
-    - Selects articles based on user-defined interests (e.g., AI, tech innovations).
-3.  **Phase 3: Detailed Scraping**:
-    - Fetches full content only for the AI-selected articles.
-    - Optimizes bandwidth and processing by scraping only necessary content.
-4.  **Phase 4: Summarization**:
-    - Sends selected articles to GPT-4o for summarization.
-    - Creates a personalized digest highlighting key information.
-5.  **Phase 5: Email Delivery**:
-    - Formats the summary into an HTML email.
-    - Sends the digest to specified recipients via SendGrid.
-
-## Usage
-
-### Basic Run
+## Quick start
 
 ```bash
-python -m __main__ --test
+# 1. Dependencies
+uv sync
+uv run playwright install chromium   # used by Crawl4AI via the engine
+# or: uv run crawl4ai-setup
+
+# 2. Postgres (local)
+docker compose up -d
+cp .env.example .env
+# set LLM_API_KEY in .env (and LLM_BASE_URL / LLM_MODEL if not using OpenAI)
+
+# 3. Schema
+uv run alembic upgrade head
+# (or let scrape_news_url create tables via init_db)
+
+# 4. Library
+PYTHONPATH=src uv run python -c "
+import asyncio
+from news_scraper import scrape_news_url
+print(asyncio.run(scrape_news_url('https://techcrunch.com/latest/')))
+"
+
+# 5. CLI convenience
+PYTHONPATH=src uv run python news_scrape.py https://techcrunch.com/latest/
+# or: PYTHONPATH=src uv run python -m news_scraper https://techcrunch.com/latest/
 ```
 
-### Custom Run
+### Local engine development
+
+To develop against a local checkout of the engine:
+
+```toml
+# in pyproject.toml [tool.uv.sources]
+self-healing-scraper = { path = "../self-healing-scraper", editable = true }
+```
+
+Then `uv sync` again.
+
+### Tests
 
 ```bash
-python -m __main__ --test --categories ai,technology --emails someone@example.com --interests "AI in education, GPT-4o updates"
+PYTHONPATH=src uv run pytest -m "not live"
+PYTHONPATH=src uv run pytest -m live   # Postgres + LLM_API_KEY + network
 ```
+
+## Public API
+
+```python
+from news_scraper import scrape_news_url, scrape_news_urls
+
+result = await scrape_news_url("https://techcrunch.com/latest/")
+# result.articles -> list[NewsArticle]
+# result.parser_id / parser_version / created_parser / repaired
+```
+
+## How it works
+
+1. Normalize URL and fetch HTML via the engine (Crawl4AI / Playwright).
+2. Find an active parser whose `url_pattern` regex matches (longest match wins).
+3. If none exists, ask the AI for a declarative `definition` + `validations` suite; store in Postgres.
+4. Execute CSS extractors → `NewsArticle` list.
+5. Run runtime validations (core + news-specific checks).
+6. On failure, pass parser + page sample + errors back to the AI, bump version, retry (default 3).
+
+Parsers are JSON configs (selectors, wait rules, field maps), not executable Python. Persistence (Postgres / Alembic) lives in this product; the engine only sees a `ParserStore`.
 
 ## Configuration
 
-Key settings are configured via environment variables:
+| Env | Default | Purpose |
+|-----|---------|---------|
+| `DATABASE_URL` | local Docker Postgres URL | SQLAlchemy async URL (`postgresql+psycopg://...`) |
+| `LLM_API_KEY` | — | Required to create/repair parsers |
+| `LLM_MODEL` | `gpt-4o` | Model for parser agent |
+| `LLM_BASE_URL` | — | OpenAI-compatible API base (e.g. `https://api.moonshot.ai/v1` for Kimi) |
+| `MAX_REPAIR_ATTEMPTS` | `3` | Self-heal loop limit |
+| `CRAWL_TIMEOUT_MS` | `30000` | Page load timeout |
+| `PAGE_SAMPLE_CHARS` | `12000` | HTML sample size sent to the AI |
 
-- `OPENAI_API_KEY`: Your OpenAI API key for summarization.
-- `SENDGRID_API_KEY`: Your SendGrid API key for email delivery.
+Same schema works against Neon, Supabase, RDS, etc. by changing `DATABASE_URL`.
 
-## Scraper System Design
+## Layout
 
-The news scraping functionality is modular and easily extensible, utilizing a base scraper class and a scraper manager.
-
-- **`scrapers/base.py`**:
-
-  - Defines `NewsArticle`: A `TypedDict` standardizing the structure for fetched news articles (title, URL, description, content, etc.).
-  - Defines `NewsScraper(ABC)`: An abstract base class for individual news source scrapers, providing a common interface and shared functionalities (e.g., HTML fetching via `requests`, parsing with `BeautifulSoup`).
-  - Concrete scrapers must implement source-specific abstract methods:
-    - `_select_article_elements()`: Finds article entries on a category page.
-    - `_extract_article_from_list_item()`: Parses basic article info (headline, URL, short description) for Phase 1.
-    - `fetch_article_by_url()`: Fetches a single, complete article by its URL.
-    - `_extract_article_info()`: Parses full content and details from an individual article page for Phase 3.
-
-- **`scrapers/<source_name>.py`** (e.g., `scrapers/techcrunch.py`, `scrapers/cnn.py`):
-
-  - Each file implements a scraper class inheriting from `NewsScraper`.
-  - Contains unique selectors and parsing logic tailored to the specific news website's HTML structure.
-
-- **`scrapers/manager.py`**:
-  - Defines `ScraperManager`: A central registry and coordinator for all scrapers.
-  - Initializes and stores instances of concrete scrapers (e.g., `TechCrunchScraper()`, `CNNScraper()`) in a dictionary, keyed by a source identifier (e.g., "techcrunch").
-  - Provides methods like `fetch_headlines()` (Phase 1) and `fetch_detailed_content()` (Phase 3), delegating work to the appropriate scraper.
-
-### Adding a New News Source
-
-To integrate a new news source (e.g., "NewSite"):
-
-1.  **Create Scraper Module**: Add `scrapers/newsite_scraper.py`.
-2.  **Implement Scraper Class**: In `newsite_scraper.py`, define `NewSiteScraper(NewsScraper)`.
-    - Implement all `NewsScraper` abstract methods with logic specific to NewSite's website structure.
-3.  **Register in `__init__.py`**: In `scrapers/__init__.py`, add `from . import newsite_scraper` to make the module accessible.
-4.  **Register in Manager**: In `scrapers/manager.py`:
-    - Import the new class: `from .newsite_scraper import NewSiteScraper`.
-    - Add an instance to `self.scrapers` in `ScraperManager.__init__`: `"newsite": NewSiteScraper()`. (Use a consistent key for the source).
-
-The `ScraperManager` and main application logic will then automatically support the new source.
-
-### SCMP API Key
-
-The `SCMPScraper` uses an API key to fetch articles from the South China Morning Post's content API. This key is currently hardcoded in `scrapers/scmp_scraper.py` within the `SCMP_API_HEADERS` dictionary.
-
-**Purpose of the API Key:**
-
-This API key is likely used by SCMP's own website frontend to authenticate its requests to their backend API. It's a common practice for websites to use such keys to:
-
-- Identify legitimate requests originating from their own applications.
-- Apply general rate limiting or quotas.
-- Provide a basic layer of access control to their internal APIs.
-
-The key is not unique to your session but is rather a general key embedded in SCMP's frontend code.
-
-**How to Find/Update the API Key if it Changes:**
-
-If the `SCMPScraper` starts failing with authentication errors (e.g., HTTP 401 or 403), the API key might have been changed by SCMP. To find the new key:
-
-1.  Open the SCMP website (e.g., `https://www.scmp.com`) in your web browser.
-2.  Open your browser's Developer Tools (usually by pressing F12 or right-clicking on the page and selecting "Inspect" or "Inspect Element").
-3.  Navigate to the "Network" tab within the Developer Tools.
-4.  Filter the requests if possible (e.g., by "Fetch/XHR" or by looking for requests to `apigw.scmp.com`).
-5.  As you browse the SCMP site (e.g., by loading the homepage or a category page), new network requests will appear in the list.
-6.  Look for requests made to `apigw.scmp.com` (specifically those related to `content-delivery/v2` or with `operationName=aroundHomeQuery`).
-7.  Click on one of these requests to view its details.
-8.  Examine the "Headers" section (specifically "Request Headers"). Look for an `apikey` header or a similar authorization-related header.
-9.  If the value of this key is different from the one in `scrapers/scmp_scraper.py`, update the `SCMP_API_HEADERS` dictionary in the script with the new key.
-
-While this key might be stable for extended periods, it's good practice to know how to find it if the scraper stops working due to authentication issues. Automating the fetching of this key is possible but can be brittle and is likely not necessary unless the key changes very frequently.
-
-## Future Improvements
-
-This section outlines potential enhancements:
-
-### Data Processing and Efficiency
-
-- **Persistent Storage**: Implement a database (e.g., SQLite, PostgreSQL) to store processed article information.
-  - Benefits: Avoid reprocessing, save API calls, track article history.
-- **Individual Article Summarization**: Summarize selected articles individually (cost permitting).
-  - Potential: Reduce AI hallucinations, but increases LLM API costs.
-
-### AI and Personalization
-
-- **Advanced Article Selection**: Explore methods beyond current LLM capabilities for two-phase fetching:
-  - Recommendation algorithms (user history, feedback).
-  - Retrieval Augmented Generation (RAG) for context-aware selection.
-- **Enhanced Category Matching**: Improve category filtering beyond direct website mapping:
-  - Fuzzy matching or semantic similarity for user-defined interests, especially for nuanced topics.
-
-### Scraping Capabilities
-
-- **Support for Single Page Applications (SPAs)**: Integrate browser automation (Selenium, Playwright) for JavaScript-driven content.
-- **Handling Pagination and Infinite Scrolling**: Enhance scrapers to:
-  - Detect and follow "next page" links.
-  - Simulate scrolling for sites with infinite scrolling.
+```
+src/news_scraper/
+  scrape.py           # thin façade → self-healing-scraper
+  domain/             # news prompts + validators
+  db/                 # SQLAlchemy + ParserRepository (ParserStore)
+alembic/              # migrations
+tests/
+docker-compose.yml    # local Postgres
+```
