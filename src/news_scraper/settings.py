@@ -1,5 +1,7 @@
 """Environment-driven settings for the news scraper product."""
 
+from __future__ import annotations
+
 from functools import lru_cache
 from pathlib import Path
 
@@ -12,6 +14,8 @@ _ENV_FILE = _PROJECT_ROOT / ".env"
 
 
 class Settings(BaseSettings):
+    """Loads ``.env`` / process env, including knobs passed through to the engine."""
+
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE),
         env_file_encoding="utf-8",
@@ -21,6 +25,7 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="postgresql+psycopg://news:news@localhost:5432/news_scraper",
     )
+    # Keep in sync with self_healing_scraper.settings.Settings
     llm_api_key: str = ""
     llm_model: str = "gpt-4o"
     llm_base_url: str = ""
@@ -29,14 +34,9 @@ class Settings(BaseSettings):
     page_sample_chars: int = 12_000
 
     def to_engine(self) -> EngineSettings:
-        """Project settings subset consumed by self-healing-scraper."""
-        return EngineSettings(
-            llm_api_key=self.llm_api_key,
-            llm_model=self.llm_model,
-            llm_base_url=self.llm_base_url,
-            max_repair_attempts=self.max_repair_attempts,
-            crawl_timeout_ms=self.crawl_timeout_ms,
-            page_sample_chars=self.page_sample_chars,
+        """Project the app settings into a parameter-only engine Settings."""
+        return EngineSettings.model_validate(
+            {name: getattr(self, name) for name in EngineSettings.model_fields}
         )
 
 

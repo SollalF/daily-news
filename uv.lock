@@ -2467,14 +2467,12 @@ wheels = [
 [[package]]
 name = "self-healing-scraper"
 version = "0.1.0"
-source = { git = "https://github.com/SollalF/self-healing-scraper#f9fba19e363f3e98c9ff15c6acfbbaf49f517342" }
+source = { git = "https://github.com/SollalF/self-healing-scraper#e7dffd0b9caa24de22c3dacfa14e6b17db7cf285" }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "crawl4ai" },
     { name = "openai" },
     { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "python-dotenv" },
     { name = "typing-extensions" },
 ]
 
