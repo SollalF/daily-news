@@ -44,6 +44,16 @@ class ParserRepository:
         return self._best_match(url, drafts)
 
     @staticmethod
+    def definition_of(record: ParserRecord) -> ParserDefinition:
+        """Rehydrate a stored JSON definition into a domain model."""
+        return ParserDefinition.model_validate(record.definition)
+
+    @staticmethod
+    def validations_of(record: ParserRecord) -> ValidationSuite:
+        """Rehydrate a stored JSON validation suite into a domain model."""
+        return ValidationSuite.model_validate(record.validations)
+
+    @staticmethod
     def _best_match(url: str, parsers: list[ParserRecord]) -> ParserRecord | None:
         matches: list[tuple[int, ParserRecord]] = []
         for parser in parsers:

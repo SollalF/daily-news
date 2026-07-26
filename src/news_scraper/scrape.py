@@ -10,12 +10,7 @@ from news_scraper.agent.repair_parser import repair_parser
 from news_scraper.db.repository import ParserRepository
 from news_scraper.db.session import get_async_session, init_db
 from news_scraper.fetch.crawler import fetch_page
-from news_scraper.models import (
-    ParserDefinition,
-    ParserStatus,
-    ScrapeResult,
-    ValidationSuite,
-)
+from news_scraper.models import ParserStatus, ScrapeResult
 from news_scraper.runtime.executor import execute_parser
 from news_scraper.runtime.validators import run_validations
 from news_scraper.settings import Settings, get_settings
@@ -48,9 +43,7 @@ async def scrape_news_url(
         repaired = False
 
         # Initial fetch without parser hints (or with existing definition hints).
-        definition = (
-            ParserDefinition.model_validate(record.definition) if record else None
-        )
+        definition = repo.definition_of(record) if record else None
         page = await fetch_page(url, definition=definition, settings=cfg)
         if not page.success:
             raise RuntimeError(page.error_message or f"Failed to fetch {url}")
@@ -63,7 +56,7 @@ async def scrape_news_url(
             )
             created_parser = True
             # Re-fetch with wait_for / js hints from the new definition.
-            definition = ParserDefinition.model_validate(record.definition)
+            definition = repo.definition_of(record)
             page = await fetch_page(url, definition=definition, settings=cfg)
             if not page.success:
                 raise RuntimeError(page.error_message or f"Failed to fetch {url}")
@@ -74,8 +67,8 @@ async def scrape_news_url(
 
         while attempts < max_attempts:
             attempts += 1
-            definition = ParserDefinition.model_validate(record.definition)
-            validations = ValidationSuite.model_validate(record.validations)
+            definition = repo.definition_of(record)
+            validations = repo.validations_of(record)
 
             # Optionally refresh page with current wait hints after repair.
             if attempts > 1 or created_parser:
