@@ -1,67 +1,106 @@
-"""
-Test configuration for pytest.
-"""
+"""Shared fixtures."""
 
-import os
-import sys
+from __future__ import annotations
 
 import pytest
 
-# Add src/ to the Python path (src layout)
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+from news_scraper.asyncio_compat import configure_event_loop_policy
+from news_scraper.models import (
+    FieldExtractor,
+    NewsArticle,
+    PageContent,
+    ParserDefinition,
+    ValidationCheck,
+    ValidationSuite,
 )
 
-from scrapers.base import NewsArticle
+configure_event_loop_policy()
 
 
 @pytest.fixture
-def sample_news_article() -> NewsArticle:
-    """Return a sample news article for testing."""
-    return {
-        "title": "Test Article",
-        "url": "https://example.com/test-article",
-        "source": "Test Source",
-        "description": "This is a test article description.",
-        "published_date": "2023-07-01",
-        "image_url": "https://example.com/image.jpg",
-        "category": "technology",
-        "content": "This is the full content of the test article.",
-    }
+def listing_html() -> str:
+    return """
+    <html><body>
+      <ul class="posts">
+        <li class="post">
+          <h2 class="title"><a href="/2026/07/25/alpha/">Alpha Story</a></h2>
+          <p class="dek">Alpha description here.</p>
+          <time datetime="2026-07-25">July 25, 2026</time>
+        </li>
+        <li class="post">
+          <h2 class="title"><a href="/2026/07/24/beta/">Beta Story</a></h2>
+          <p class="dek">Beta description here.</p>
+          <time datetime="2026-07-24">July 24, 2026</time>
+        </li>
+        <li class="post">
+          <h2 class="title"><a href="/2026/07/23/gamma/">Gamma Story</a></h2>
+          <p class="dek">Gamma description here.</p>
+          <time datetime="2026-07-23">July 23, 2026</time>
+        </li>
+      </ul>
+    </body></html>
+    """
 
 
 @pytest.fixture
-def sample_news_articles() -> list[NewsArticle]:
-    """Return a list of sample news articles for testing."""
+def listing_page(listing_html: str) -> PageContent:
+    return PageContent(
+        url="https://techcrunch.com/latest/",
+        html=listing_html,
+        markdown=None,
+        success=True,
+    )
+
+
+@pytest.fixture
+def listing_definition() -> ParserDefinition:
+    return ParserDefinition(
+        js_enabled=False,
+        item_selector="li.post",
+        source_name="TechCrunch",
+        fields={
+            "title": FieldExtractor(selector="h2.title a", attr="text"),
+            "url": FieldExtractor(selector="h2.title a", attr="href"),
+            "description": FieldExtractor(selector="p.dek", attr="text"),
+            "published_date": FieldExtractor(selector="time", attr="datetime"),
+        },
+    )
+
+
+@pytest.fixture
+def listing_validations() -> ValidationSuite:
+    return ValidationSuite(
+        checks=[
+            ValidationCheck(type="min_count", value=3),
+            ValidationCheck(type="required_fields", fields=["title", "url"]),
+            ValidationCheck(type="title_min_length", value=5),
+            ValidationCheck(type="url_same_host"),
+        ]
+    )
+
+
+@pytest.fixture
+def sample_articles() -> list[NewsArticle]:
     return [
         {
-            "title": "AI Breakthrough",
-            "url": "https://example.com/ai-breakthrough",
-            "source": "Tech News",
-            "description": "A new AI model has achieved state-of-the-art results.",
-            "published_date": "2023-10-01",
-            "image_url": "https://example.com/ai.jpg",
-            "category": "ai",
-            "content": "A new AI model has achieved state-of-the-art results.",
+            "title": "Alpha Story",
+            "url": "https://techcrunch.com/2026/07/25/alpha/",
+            "description": "Alpha description here.",
+            "source": "TechCrunch",
+            "published_date": "2026-07-25",
         },
         {
-            "title": "New Programming Language",
-            "url": "https://example.com/new-language",
-            "source": "Dev Weekly",
-            "description": "A new programming language promises better performance.",
-            "published_date": "2023-10-02",
-            "image_url": "https://example.com/lang.jpg",
-            "category": "technology",
-            "content": "A new programming language promises better performance.",
+            "title": "Beta Story",
+            "url": "https://techcrunch.com/2026/07/24/beta/",
+            "description": "Beta description here.",
+            "source": "TechCrunch",
+            "published_date": "2026-07-24",
         },
         {
-            "title": "Tech Company Layoffs",
-            "url": "https://example.com/layoffs",
-            "source": "Business Tech",
-            "description": "Major tech company announces layoffs.",
-            "published_date": "2023-10-03",
-            "image_url": "https://example.com/business.jpg",
-            "category": "business",
-            "content": "Major tech company announces layoffs.",
+            "title": "Gamma Story",
+            "url": "https://techcrunch.com/2026/07/23/gamma/",
+            "description": "Gamma description here.",
+            "source": "TechCrunch",
+            "published_date": "2026-07-23",
         },
     ]
