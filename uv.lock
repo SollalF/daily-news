@@ -1454,7 +1454,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0,<3" },
     { name = "pydantic-settings", specifier = ">=2.14.2" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "self-healing-scraper", editable = "../self-healing-scraper" },
+    { name = "self-healing-scraper", specifier = ">=0.2.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.0" },
     { name = "typer", specifier = ">=0.15.0" },
     { name = "typing-extensions", specifier = ">=4.5.0" },
@@ -2466,8 +2466,8 @@ wheels = [
 
 [[package]]
 name = "self-healing-scraper"
-version = "0.1.0"
-source = { editable = "../self-healing-scraper" }
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "crawl4ai" },
@@ -2475,23 +2475,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "typing-extensions" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "beautifulsoup4", specifier = ">=4.15.0" },
-    { name = "crawl4ai", specifier = ">=0.7.0" },
-    { name = "openai", specifier = ">=2.48.0" },
-    { name = "pydantic", specifier = ">=2.0.0,<3" },
-    { name = "typing-extensions", specifier = ">=4.5.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pre-commit", specifier = ">=4.6.1" },
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "pytest-asyncio", specifier = ">=0.25.0" },
-    { name = "ruff", specifier = ">=0.16.0" },
-    { name = "ty", specifier = ">=0.0.63" },
+sdist = { url = "https://files.pythonhosted.org/packages/f3/7b/8072ce432d6584902cdc3701825b7fb8d6ea57f3f5cbdf4b8ea1780babe7/self_healing_scraper-0.2.0.tar.gz", hash = "sha256:30d4aeaa046af3e9de9d5dd121560518d3adfa6bf65ce006c83e69e362333b2e", size = 203593, upload-time = "2026-08-04T14:53:18.489Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e6/42/a058d4396d5b297f5f747ae74f3396a3b7132b80d3b537311dc3e2c95952/self_healing_scraper-0.2.0-py3-none-any.whl", hash = "sha256:c06eab3de072ddc2aa2408f25579a68338ccff7f332db1471585f91919d3bc73", size = 21774, upload-time = "2026-08-04T14:53:17.331Z" },
 ]
 
 [[package]]

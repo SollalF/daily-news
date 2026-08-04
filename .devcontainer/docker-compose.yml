@@ -3,10 +3,7 @@ services:
     image: mcr.microsoft.com/devcontainers/python:1-3.12-bookworm
     volumes:
       # Workspace (this repo)
-      - ..:/workspaces/daily-news-1:cached
-      # Sibling engine checkout for editable local iteration
-      # (expects ../self-healing-scraper next to this repo on the host)
-      - ../../self-healing-scraper:/workspaces/self-healing-scraper:cached
+      - ..:/workspaces/daily-news:cached
     command: sleep infinity
     environment:
       DATABASE_URL: postgresql+psycopg://news:news@db:5432/news_scraper

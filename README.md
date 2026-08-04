@@ -9,15 +9,15 @@ Self-healing, database-backed **news** scraper built on [`self-healing-scraper`]
 Runs Linux + Postgres + Playwright in Docker (avoids Windows host quirks with
 async Postgres + browser scraping).
 
-1. Keep a sibling checkout at `../self-healing-scraper` (editable local engine).
-2. In Cursor/VS Code: **Dev Containers: Reopen in Container**.
-3. After `postCreate` finishes, set `LLM_API_KEY` in `.env` and scrape:
+1. In Cursor/VS Code: **Dev Containers: Reopen in Container**.
+2. After `postCreate` finishes, set `LLM_API_KEY` in `.env` and scrape:
 
 ```bash
 uv run python news_scrape.py https://techcrunch.com/latest/
 ```
 
 `DATABASE_URL` inside the container points at the compose `db` service.
+`self-healing-scraper` is installed from PyPI via `uv sync` (no sibling checkout required).
 
 ### Host machine
 
@@ -47,18 +47,6 @@ print(asyncio.run(scrape_news_url('https://techcrunch.com/latest/')))
 PYTHONPATH=src uv run python news_scrape.py https://techcrunch.com/latest/
 # or: PYTHONPATH=src uv run python -m news_scraper https://techcrunch.com/latest/
 ```
-
-### Local engine development
-
-`pyproject.toml` already points at the sibling checkout:
-
-```toml
-# in pyproject.toml [tool.uv.sources]
-self-healing-scraper = { path = "../self-healing-scraper", editable = true }
-```
-
-The Dev Container mounts that path at `/workspaces/self-healing-scraper`. On the
-host, run `uv sync` again after changing the source.
 
 ### Tests
 
