@@ -4,6 +4,23 @@ Self-healing, database-backed **news** scraper built on [`self-healing-scraper`]
 
 ## Quick start
 
+### Dev Container (recommended on Windows)
+
+Runs Linux + Postgres + Playwright in Docker (avoids Windows host quirks with
+async Postgres + browser scraping).
+
+1. Keep a sibling checkout at `../self-healing-scraper` (editable local engine).
+2. In Cursor/VS Code: **Dev Containers: Reopen in Container**.
+3. After `postCreate` finishes, set `LLM_API_KEY` in `.env` and scrape:
+
+```bash
+uv run python news_scrape.py https://techcrunch.com/latest/
+```
+
+`DATABASE_URL` inside the container points at the compose `db` service.
+
+### Host machine
+
 ```bash
 # 1. Dependencies
 uv sync
@@ -33,14 +50,15 @@ PYTHONPATH=src uv run python news_scrape.py https://techcrunch.com/latest/
 
 ### Local engine development
 
-To develop against a local checkout of the engine:
+`pyproject.toml` already points at the sibling checkout:
 
 ```toml
 # in pyproject.toml [tool.uv.sources]
 self-healing-scraper = { path = "../self-healing-scraper", editable = true }
 ```
 
-Then `uv sync` again.
+The Dev Container mounts that path at `/workspaces/self-healing-scraper`. On the
+host, run `uv sync` again after changing the source.
 
 ### Tests
 
@@ -77,7 +95,7 @@ Parsers are JSON configs (selectors, wait rules, field maps), not executable Pyt
 | `DATABASE_URL` | local Docker Postgres URL | SQLAlchemy async URL (`postgresql+psycopg://...`) |
 | `LLM_API_KEY` | — | Required to create/repair parsers |
 | `LLM_MODEL` | `gpt-4o` | Model for parser agent |
-| `LLM_BASE_URL` | — | OpenAI-compatible API base (e.g. `https://api.moonshot.ai/v1` for Kimi) |
+| `LLM_BASE_URL` | — | OpenAI-compatible API base (must match the key; see `.env.example`) |
 | `MAX_REPAIR_ATTEMPTS` | `3` | Self-heal loop limit |
 | `CRAWL_TIMEOUT_MS` | `30000` | Page load timeout |
 | `PAGE_SAMPLE_CHARS` | `12000` | HTML sample size sent to the AI |
@@ -93,5 +111,6 @@ src/news_scraper/
   db/                 # SQLAlchemy + ParserRepository (ParserStore)
 alembic/              # migrations
 tests/
-docker-compose.yml    # local Postgres
+docker-compose.yml    # host-only Postgres
+.devcontainer/        # Linux app + Postgres Dev Container
 ```
