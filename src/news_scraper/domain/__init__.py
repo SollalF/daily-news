@@ -8,7 +8,6 @@ from news_scraper.domain.prompts import (
     REPAIR_SYSTEM,
     REPAIR_USER_TEMPLATE,
 )
-from news_scraper.domain.validators import NEWS_EXTRA_VALIDATORS, NEWS_KNOWN_CHECKS
 
 NEWS_DOMAIN = ScrapeDomain(
     prompts=DomainPrompts(
@@ -18,8 +17,6 @@ NEWS_DOMAIN = ScrapeDomain(
         repair_user_template=REPAIR_USER_TEMPLATE,
     ),
     default_required_fields=["title", "url"],
-    known_checks=NEWS_KNOWN_CHECKS,
-    extra_validators=NEWS_EXTRA_VALIDATORS,
 )
 
 __all__ = ["NEWS_DOMAIN"]

@@ -10,7 +10,7 @@ _SRC = Path(__file__).resolve().parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from news_scraper.cli import app  # noqa: E402
+from news_scraper.cli import main  # noqa: E402
 
 if __name__ == "__main__":
-    app()
+    main()

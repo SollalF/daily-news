@@ -54,8 +54,10 @@ class ParserRepository:
     @staticmethod
     def validations_of(record: ParserRecordLike) -> ValidationSuite:
         """Rehydrate a stored JSON validation suite into a domain model."""
+        from self_healing_scraper.runtime.validators import migrate_legacy_checks
+
         orm = cast(ParserRecord, record)
-        return ValidationSuite.model_validate(orm.validations)
+        return migrate_legacy_checks(ValidationSuite.model_validate(orm.validations))
 
     async def create_from_generated(
         self,

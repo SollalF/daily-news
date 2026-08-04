@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
 from dotenv import load_dotenv
-from self_healing_scraper.asyncio_compat import configure_event_loop_policy, run
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
@@ -26,8 +26,6 @@ target_metadata = Base.metadata
 database_url = os.getenv("DATABASE_URL")
 if database_url:
     config.set_main_option("sqlalchemy.url", database_url)
-
-configure_event_loop_policy()
 
 
 def run_migrations_offline() -> None:
@@ -60,7 +58,7 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    run(run_async_migrations())
+    asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():

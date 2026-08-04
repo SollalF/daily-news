@@ -20,6 +20,8 @@ from self_healing_scraper.models import (
 from typing_extensions import TypedDict
 
 __all__ = [
+    "BatchScrapeResult",
+    "BatchUrlResult",
     "FieldExtractor",
     "GeneratedParser",
     "NewsArticle",
@@ -57,3 +59,23 @@ class ScrapeResult(BaseModel):
     created_parser: bool = False
     repaired: bool = False
     attempts: int = 1
+
+
+class BatchUrlResult(BaseModel):
+    """Per-URL outcome for a resilient batch scrape."""
+
+    url: str
+    ok: bool
+    articles: list[NewsArticle] = []
+    parser_id: str | None = None
+    parser_version: int | None = None
+    created_parser: bool = False
+    repaired: bool = False
+    attempts: int = 0
+    error: str | None = None
+
+
+class BatchScrapeResult(BaseModel):
+    """Envelope returned by ``scrape_news_urls_resilient`` / ``news-scrape batch``."""
+
+    results: list[BatchUrlResult]

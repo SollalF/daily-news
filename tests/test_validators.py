@@ -30,13 +30,26 @@ def test_min_count_fails(sample_articles: list[NewsArticle]) -> None:
     assert result.failures[0].check_type == "min_count"
 
 
-def test_title_min_length_news_check(sample_articles: list[NewsArticle]) -> None:
+def test_field_min_length_fails(sample_articles: list[NewsArticle]) -> None:
     articles = list(sample_articles)
     articles[0] = {**articles[0], "title": "Hi"}
-    suite = ValidationSuite(checks=[ValidationCheck(type="title_min_length", value=5)])
+    suite = ValidationSuite(
+        checks=[ValidationCheck(type="field_min_length", field="title", value=5)]
+    )
     result = run_validations(_as_items(articles), suite, None, domain=NEWS_DOMAIN)
     assert not result.passed
-    assert result.failures[0].check_type == "title_min_length"
+    assert result.failures[0].check_type == "field_min_length"
+
+
+def test_date_parseable_via_core(sample_articles: list[NewsArticle]) -> None:
+    articles = list(sample_articles)
+    articles[0] = {**articles[0], "published_date": "yesterday"}
+    suite = ValidationSuite(
+        checks=[ValidationCheck(type="date_parseable", field="published_date")]
+    )
+    result = run_validations(_as_items(articles), suite, None, domain=NEWS_DOMAIN)
+    assert not result.passed
+    assert result.failures[0].check_type == "date_parseable"
 
 
 def test_not_equals_banned_title(sample_articles: list[NewsArticle]) -> None:

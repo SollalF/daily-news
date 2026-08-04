@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from self_healing_scraper.asyncio_compat import configure_event_loop_policy
 from self_healing_scraper.models import (
     FieldExtractor,
     PageContent,
@@ -13,8 +12,6 @@ from self_healing_scraper.models import (
 )
 
 from news_scraper.models import NewsArticle
-
-configure_event_loop_policy()
 
 
 @pytest.fixture
@@ -73,7 +70,7 @@ def listing_validations() -> ValidationSuite:
         checks=[
             ValidationCheck(type="min_count", value=3),
             ValidationCheck(type="required_fields", fields=["title", "url"]),
-            ValidationCheck(type="title_min_length", value=5),
+            ValidationCheck(type="field_min_length", field="title", value=5),
             ValidationCheck(type="url_same_host"),
         ]
     )

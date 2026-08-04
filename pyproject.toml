@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-news-scrape = "news_scraper.cli:app"
+news-scrape = "news_scraper.cli:main"
 
 [dependency-groups]
 dev = [
@@ -33,7 +33,7 @@ dev = [
 package = false
 
 [tool.uv.sources]
-self-healing-scraper = { git = "https://github.com/SollalF/self-healing-scraper" }
+self-healing-scraper = { path = "../self-healing-scraper", editable = true }
 
 [tool.ruff]
 target-version = "py312"

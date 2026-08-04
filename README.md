@@ -70,12 +70,96 @@ PYTHONPATH=src uv run pytest -m live   # Postgres + LLM_API_KEY + network
 ## Public API
 
 ```python
-from news_scraper import scrape_news_url, scrape_news_urls
+from news_scraper import scrape_news_url, scrape_news_urls, scrape_news_urls_resilient
 
 result = await scrape_news_url("https://techcrunch.com/latest/")
 # result.articles -> list[NewsArticle]
 # result.parser_id / parser_version / created_parser / repaired
+
+batch = await scrape_news_urls_resilient(
+    ["https://techcrunch.com/latest/", "https://example.com/tech/"]
+)
+# batch.results[i].ok / .articles / .error — never aborts the whole run
 ```
+
+### Batch CLI (agent-friendly)
+
+Scrape many listing or article URLs in one process. Per-URL failures become
+`ok: false` entries instead of crashing the job.
+
+```bash
+# args
+uv run python news_scrape.py batch \
+  https://techcrunch.com/latest/ \
+  https://example.com/tech/ \
+  --compact
+
+# or stdin JSON array / {"urls": [...]} / newline-separated URLs
+printf '%s\n' '["https://techcrunch.com/latest/"]' \
+  | uv run python news_scrape.py batch --compact
+```
+
+Exit codes: `0` all URLs succeeded, `2` at least one failed (JSON still printed),
+`1` usage error.
+
+Envelope shape:
+
+```json
+{
+  "results": [
+    {
+      "url": "https://techcrunch.com/latest/",
+      "ok": true,
+      "articles": [
+        {
+          "title": "...",
+          "url": "https://techcrunch.com/2026/08/01/story/",
+          "description": "...",
+          "published_date": "...",
+          "source": "TechCrunch"
+        }
+      ],
+      "parser_id": "...",
+      "parser_version": 1,
+      "created_parser": false,
+      "repaired": false,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "url": "https://broken.example/",
+      "ok": false,
+      "articles": [],
+      "error": "Validation failed after 3 repairs: ..."
+    }
+  ]
+}
+```
+
+## Newsletter agent runbook (OpenClaw)
+
+daily-news only scrapes. Cron, source list, ranking prompt, and WhatsApp
+formatting stay in the agent. Two Python calls per day:
+
+1. **Listings** — batch-scrape your configured source URLs (home / section /
+   emergency pages). Flatten successful `articles`; surface any `ok: false`
+   errors in the daily message for diagnosis.
+2. **Rank** — use your configurable agent prompt (e.g. focus on AI / Hong Kong)
+   on title, description, source, and date. Pick top N article URLs.
+3. **Articles** — batch-scrape those article URLs with the same CLI.
+4. **WhatsApp** — format a short message with titles and hyperlinks (use listing
+   blurbs if an article scrape fails).
+
+```bash
+# call 1 — sources you configure in the agent
+uv run python news_scrape.py batch SOURCE_URL_1 SOURCE_URL_2 --compact
+
+# call 2 — top N chosen by the agent
+uv run python news_scrape.py batch ARTICLE_URL_1 ARTICLE_URL_2 --compact
+```
+
+Prefer clean section feeds over noisy homepages. Cold sources may create parsers
+on first run (`LLM_API_KEY` required); later runs reuse Postgres parsers.
 
 ## How it works
 
@@ -83,7 +167,7 @@ result = await scrape_news_url("https://techcrunch.com/latest/")
 2. Find an active parser whose `url_pattern` regex matches (longest match wins).
 3. If none exists, ask the AI for a declarative `definition` + `validations` suite; store in Postgres.
 4. Execute CSS extractors → `NewsArticle` list.
-5. Run runtime validations (core + news-specific checks).
+5. Run runtime validations (core checks via the engine).
 6. On failure, pass parser + page sample + errors back to the AI, bump version, retry (default 3).
 
 Parsers are JSON configs (selectors, wait rules, field maps), not executable Python. Persistence (Postgres / Alembic) lives in this product; the engine only sees a `ParserStore`.
@@ -106,7 +190,8 @@ Same schema works against Neon, Supabase, RDS, etc. by changing `DATABASE_URL`.
 
 ```
 src/news_scraper/
-  scrape.py           # thin façade → self-healing-scraper
+  scrape.py           # thin façade → self-healing-scraper (+ resilient batch)
+  cli.py              # news-scrape scrape|batch
   domain/             # news prompts + validators
   db/                 # SQLAlchemy + ParserRepository (ParserStore)
 alembic/              # migrations

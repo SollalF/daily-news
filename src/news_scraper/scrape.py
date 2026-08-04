@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import cast
 
 from self_healing_scraper import normalize_url, scrape_url
@@ -9,10 +10,22 @@ from self_healing_scraper import normalize_url, scrape_url
 from news_scraper.db.repository import ParserRepository
 from news_scraper.db.session import get_async_session, init_db
 from news_scraper.domain import NEWS_DOMAIN
-from news_scraper.models import NewsArticle, ScrapeResult
+from news_scraper.models import (
+    BatchScrapeResult,
+    BatchUrlResult,
+    NewsArticle,
+    ScrapeResult,
+)
 from news_scraper.settings import Settings, get_settings
 
-__all__ = ["normalize_url", "scrape_news_url", "scrape_news_urls"]
+__all__ = [
+    "normalize_url",
+    "scrape_news_url",
+    "scrape_news_urls",
+    "scrape_news_urls_resilient",
+]
+
+logger = logging.getLogger(__name__)
 
 
 async def scrape_news_url(
@@ -57,3 +70,42 @@ async def scrape_news_urls(
             await scrape_news_url(url, settings=settings, ensure_schema=ensure_schema)
         )
     return results
+
+
+async def scrape_news_urls_resilient(
+    urls: list[str],
+    *,
+    settings: Settings | None = None,
+    ensure_schema: bool = True,
+) -> BatchScrapeResult:
+    """Scrape many URLs; capture per-URL failures instead of aborting the batch."""
+    cfg = settings or get_settings()
+    if ensure_schema and urls:
+        await init_db(cfg)
+
+    outcomes: list[BatchUrlResult] = []
+    for url in urls:
+        try:
+            result = await scrape_news_url(url, settings=cfg, ensure_schema=False)
+            outcomes.append(
+                BatchUrlResult(
+                    url=result.url,
+                    ok=True,
+                    articles=result.articles,
+                    parser_id=result.parser_id,
+                    parser_version=result.parser_version,
+                    created_parser=result.created_parser,
+                    repaired=result.repaired,
+                    attempts=result.attempts,
+                )
+            )
+        except Exception as exc:
+            logger.exception("Batch scrape failed for %s", url)
+            outcomes.append(
+                BatchUrlResult(
+                    url=url,
+                    ok=False,
+                    error=str(exc) or exc.__class__.__name__,
+                )
+            )
+    return BatchScrapeResult(results=outcomes)
