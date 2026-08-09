@@ -62,13 +62,33 @@ from news_scraper import scrape_news_url, scrape_news_urls, scrape_news_urls_res
 
 result = await scrape_news_url("https://techcrunch.com/latest/")
 # result.articles -> list[NewsArticle]
-# result.parser_id / parser_version / created_parser / repaired
+# result.parser_id / parser_version / created_parser / repaired / from_cache
 
 batch = await scrape_news_urls_resilient(
     ["https://techcrunch.com/latest/", "https://example.com/tech/"]
 )
 # batch.results[i].ok / .articles / .error — never aborts the whole run
 ```
+
+### Already-scraped articles are served from Postgres
+
+An article URL that already has a successful row in `scrape_runs` is returned
+straight from the database: no fetch, no parser execution, no LLM. The stored
+articles never expire, and the newest successful run wins.
+
+- Only article pages qualify. Listings always re-scrape, since they gain new
+  items constantly. Override with `CACHED_PAGE_KINDS`.
+- A reused result has `from_cache: true` and `attempts: 0`, and does not add a
+  new `scrape_runs` row.
+- Pass `force_refresh=True` (or `--force-refresh` on the CLI) to re-scrape
+  regardless.
+
+```bash
+uv run python news_scrape.py https://techcrunch.com/2026/08/01/story/ --force-refresh
+```
+
+This matters most for the runbook's step 3: re-running the same top-N article
+URLs costs nothing after the first scrape.
 
 ### Batch CLI (agent-friendly)
 
@@ -112,6 +132,7 @@ Envelope shape:
       "created_parser": false,
       "repaired": false,
       "attempts": 1,
+      "from_cache": false,
       "error": null
     },
     {
@@ -151,12 +172,13 @@ on first run (`LLM_API_KEY` required); later runs reuse Postgres parsers.
 
 ## How it works
 
-1. Normalize URL and fetch HTML via the engine (Crawl4AI / Playwright).
-2. Find an active parser whose `url_pattern` regex matches (longest match wins).
-3. If none exists, ask the AI for a declarative `definition` + `validations` suite; store in Postgres.
-4. Execute CSS extractors → `NewsArticle` list.
-5. Run runtime validations (core checks via the engine).
-6. On failure, pass parser + page sample + errors back to the AI, bump version, retry (default 3).
+1. Normalize the URL and find an active parser whose `url_pattern` regex matches (longest match wins).
+2. For article pages, return the newest successful `scrape_runs` row if one exists — no fetch, no LLM.
+3. Otherwise fetch HTML via the engine (Crawl4AI / Playwright).
+4. If no parser exists, ask the AI for a declarative `definition` + `validations` suite; store in Postgres.
+5. Execute CSS extractors → `NewsArticle` list.
+6. Run runtime validations (core checks via the engine).
+7. On failure, pass parser + page sample + errors back to the AI, bump version, retry (default 3).
 
 Parsers are JSON configs (selectors, wait rules, field maps), not executable Python. Persistence (Postgres / Alembic) lives in this product; the engine only sees a `ParserStore`.
 
@@ -171,6 +193,7 @@ Parsers are JSON configs (selectors, wait rules, field maps), not executable Pyt
 | `MAX_REPAIR_ATTEMPTS` | `3` | Self-heal loop limit |
 | `CRAWL_TIMEOUT_MS` | `30000` | Page load timeout |
 | `PAGE_SAMPLE_CHARS` | `12000` | HTML sample size sent to the AI |
+| `CACHED_PAGE_KINDS` | `["article"]` | Page kinds served from a stored run instead of re-scraped |
 
 Same schema works against Neon, Supabase, RDS, etc. by changing `DATABASE_URL`.
 

@@ -33,8 +33,13 @@ async def scrape_news_url(
     *,
     settings: Settings | None = None,
     ensure_schema: bool = True,
+    force_refresh: bool = False,
 ) -> ScrapeResult:
-    """Scrape a news URL using a stored or newly created self-healing parser."""
+    """Scrape a news URL using a stored or newly created self-healing parser.
+
+    Article URLs already in ``scrape_runs`` are served from storage unless
+    ``force_refresh`` is set.
+    """
     cfg = settings or get_settings()
     if ensure_schema:
         await init_db(cfg)
@@ -46,6 +51,7 @@ async def scrape_news_url(
             store=store,
             domain=NEWS_DOMAIN,
             settings=cfg.to_engine(),
+            force_refresh=force_refresh,
         )
         return ScrapeResult(
             url=raw.url,
@@ -55,6 +61,7 @@ async def scrape_news_url(
             created_parser=raw.created_parser,
             repaired=raw.repaired,
             attempts=raw.attempts,
+            from_cache=raw.from_cache,
         )
 
 
@@ -63,11 +70,17 @@ async def scrape_news_urls(
     *,
     settings: Settings | None = None,
     ensure_schema: bool = True,
+    force_refresh: bool = False,
 ) -> list[ScrapeResult]:
     results: list[ScrapeResult] = []
     for url in urls:
         results.append(
-            await scrape_news_url(url, settings=settings, ensure_schema=ensure_schema)
+            await scrape_news_url(
+                url,
+                settings=settings,
+                ensure_schema=ensure_schema,
+                force_refresh=force_refresh,
+            )
         )
     return results
 
@@ -77,6 +90,7 @@ async def scrape_news_urls_resilient(
     *,
     settings: Settings | None = None,
     ensure_schema: bool = True,
+    force_refresh: bool = False,
 ) -> BatchScrapeResult:
     """Scrape many URLs; capture per-URL failures instead of aborting the batch."""
     cfg = settings or get_settings()
@@ -86,7 +100,12 @@ async def scrape_news_urls_resilient(
     outcomes: list[BatchUrlResult] = []
     for url in urls:
         try:
-            result = await scrape_news_url(url, settings=cfg, ensure_schema=False)
+            result = await scrape_news_url(
+                url,
+                settings=cfg,
+                ensure_schema=False,
+                force_refresh=force_refresh,
+            )
             outcomes.append(
                 BatchUrlResult(
                     url=result.url,
@@ -97,6 +116,7 @@ async def scrape_news_urls_resilient(
                     created_parser=result.created_parser,
                     repaired=result.repaired,
                     attempts=result.attempts,
+                    from_cache=result.from_cache,
                 )
             )
         except Exception as exc:

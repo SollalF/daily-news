@@ -61,11 +61,16 @@ def scrape_command(
     url: str = typer.Argument(..., help="News listing or article URL"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
     pretty: bool = typer.Option(True, "--pretty/--compact"),
+    force_refresh: bool = typer.Option(
+        False,
+        "--force-refresh",
+        help="Re-scrape even if a stored run already exists for the URL",
+    ),
 ) -> None:
     """Scrape a URL and print articles as JSON."""
     _configure_logging(verbose)
     get_settings()  # load .env early for clearer errors
-    result = asyncio.run(scrape_news_url(url))
+    result = asyncio.run(scrape_news_url(url, force_refresh=force_refresh))
     _echo_json(result.model_dump(), pretty=pretty)
 
 
@@ -77,6 +82,11 @@ def batch_command(
     ] = None,
     verbose: bool = typer.Option(False, "--verbose", "-v"),
     pretty: bool = typer.Option(True, "--pretty/--compact"),
+    force_refresh: bool = typer.Option(
+        False,
+        "--force-refresh",
+        help="Re-scrape even if a stored run already exists for the URL",
+    ),
 ) -> None:
     """Scrape many URLs; print one JSON envelope with per-URL success/error."""
     _configure_logging(verbose)
@@ -92,7 +102,9 @@ def batch_command(
         )
         raise typer.Exit(code=1)
 
-    batch = asyncio.run(scrape_news_urls_resilient(resolved))
+    batch = asyncio.run(
+        scrape_news_urls_resilient(resolved, force_refresh=force_refresh)
+    )
     _echo_json(batch.model_dump(), pretty=pretty)
     if any(not item.ok for item in batch.results):
         raise typer.Exit(code=2)

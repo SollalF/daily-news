@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Self-healing, database-backed news scraper built on self-healing-scraper"
 requires-python = ">=3.12"
 dependencies = [
-    "self-healing-scraper>=0.2.0",
+    "self-healing-scraper>=0.3.0",
     "pydantic>=2.0.0,<3",
     "pydantic-settings>=2.14.2",
     "python-dotenv>=1.0.0",

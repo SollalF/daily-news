@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     max_repair_attempts: int = 3
     crawl_timeout_ms: int = 30_000
     page_sample_chars: int = 12_000
+    cached_page_kinds: frozenset[str] = frozenset({"article"})
 
     def to_engine(self) -> EngineSettings:
         """Project the app settings into a parameter-only engine Settings."""

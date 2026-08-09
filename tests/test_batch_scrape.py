@@ -38,6 +38,7 @@ async def test_scrape_news_urls_resilient_continues_after_failure() -> None:
         *,
         settings: Settings | None = None,
         ensure_schema: bool = True,
+        force_refresh: bool = False,
     ) -> ScrapeResult:
         if "fail" in url:
             raise RuntimeError("boom")

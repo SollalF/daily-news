@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from self_healing_scraper.models import (
+    CachedRun,
     GeneratedParser,
     ParserDefinition,
     ParserStatus,
@@ -145,6 +146,28 @@ class ParserRepository:
         await self.session.commit()
         await self.session.refresh(run)
         return run
+
+    async def find_cached_run(self, url: str, *, page_kind: str) -> CachedRun | None:
+        """Reuse the newest successful run for this URL; stored articles never expire."""
+        stmt = (
+            select(ScrapeRunRecord)
+            .where(
+                ScrapeRunRecord.url == url,
+                ScrapeRunRecord.success.is_(True),
+                ScrapeRunRecord.article_count > 0,
+            )
+            .order_by(ScrapeRunRecord.created_at.desc())
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        run = result.scalars().first()
+        if run is None or not run.articles:
+            return None
+        return CachedRun(
+            items=list(run.articles),
+            parser_id=str(run.parser_id) if run.parser_id else None,
+            parser_version=run.parser_version,
+        )
 
     async def get_by_id(self, parser_id: uuid.UUID) -> ParserRecord | None:
         return await self.session.get(ParserRecord, parser_id)

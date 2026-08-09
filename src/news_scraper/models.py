@@ -59,6 +59,7 @@ class ScrapeResult(BaseModel):
     created_parser: bool = False
     repaired: bool = False
     attempts: int = 1
+    from_cache: bool = False
 
 
 class BatchUrlResult(BaseModel):
@@ -72,6 +73,7 @@ class BatchUrlResult(BaseModel):
     created_parser: bool = False
     repaired: bool = False
     attempts: int = 0
+    from_cache: bool = False
     error: str | None = None
 
 
